@@ -247,16 +247,25 @@
 }
 
 /*
- * 区块的「+」菜单默认向下弹（.section-action-menu { top: calc(100% + 4px) }），
- * 但抽屉里最靠下的那些区块下面已经没有空间了，菜单会被滚动容器裁掉 ——
- * 用户原话：「最下面的功能打开之后，看不见了」。手机上让最后两个区块改成朝上弹。
+ * 区块的「+」菜单。
+ *
+ * 这里原先是一条静态启发式：`.resource-section:nth-last-child(-n + 2)` 的最后两个
+ * 区块改成朝上弹（`bottom: calc(100% + 4px)`），因为抽屉里靠下的区块下面没空间。
+ * 那条规则有两个问题：
+ *
+ *   1. 方向写死，不看当时有没有空间 —— 同一个区块在不同展开状态下高度差很多；
+ *   2. 更致命的是**裁切**：`.section-action-menu` 的祖先是
+ *      `.sidebar-scroll { overflow-y: auto }`，绝对定位照样被裁。用户把「更多功能」
+ *      收起、下面区块整体上移之后，朝上弹的菜单撞到容器顶边，
+ *      表现就是「打开的弹窗会被遮挡一部分」。
+ *
+ * 现在方向与落点由 TreeSection 用 resolveMenuPlacement 按真实可用空间算，
+ * 菜单本身 Teleport 到 body（`.is-floating`）—— 任何祖先的 overflow 都裁不到它。
+ * 这里只负责层级：抽屉 72、遮罩 71、顶栏 70，菜单要到它们上面。
  */
-:root[data-mobile="true"]
-  .left-sidebar
-  .resource-section:nth-last-child(-n + 2)
-  .section-action-menu {
-  top: auto;
-  bottom: calc(100% + 4px);
+:root[data-mobile="true"] .section-action-menu.is-floating {
+  z-index: 80;
+  overscroll-behavior: contain;
 }
 
 /* ---------------- 会话栏：header 整条取消 ---------------- */

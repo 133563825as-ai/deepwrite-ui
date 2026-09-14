@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import type {
   BookResourceDialogMode,
   CatalogResourceNodeActionPayload,
@@ -16,6 +16,13 @@ import type {
 import AppIcon from "./AppIcon.vue";
 import TreeNodeItem from "./TreeNodeItem.vue";
 import { useCreationBookDrag } from "../composables/useCreationBookDrag";
+import { useMobileShellStore } from "../stores/mobileShellStore";
+import {
+  resolveMenuPlacement,
+  type MenuPlacement
+} from "../utils/anchoredMenuPlacement";
+
+const mobileShell = useMobileShellStore();
 
 const props = defineProps<{
   section: ResourceTreeSection;
@@ -59,6 +66,71 @@ const emit = defineEmits<{
 const collapsed = ref(false);
 const actionMenuOpen = ref(false);
 const actionArea = ref<HTMLElement | null>(null);
+const actionButton = ref<HTMLElement | null>(null);
+const actionMenu = ref<HTMLElement | null>(null);
+/** 手机端的浮层落点；桌面端保持原来的 absolute 定位，这个值不会被用到。 */
+const menuPlacement = ref<MenuPlacement | null>(null);
+
+/*
+ * 手机端这条菜单为什么要「测量 + 脱离滚动容器」：
+ *
+ * 它原先靠 CSS 静态启发式（mobile-shell.css 里 `.resource-section:nth-last-child(-n+2)`
+ * → 最后两个区块改成朝上弹）决定方向，而它的祖先是
+ * `.sidebar-scroll { overflow-y: auto }` —— 绝对定位的子元素照样被裁。
+ * 用户把「更多功能」收起、下面区块整体上移之后，朝上弹的菜单就撞到容器顶边，
+ * 表现是「打开的弹窗会被遮挡一部分」。
+ *
+ * 现在：落点由 resolveMenuPlacement 按真实可用空间算（优先向下，放不下才向上，
+ * 再放不下就自己滚），并且 Teleport 到 body —— 任何祖先的 overflow 都裁不到。
+ * 桌面端不改：Teleport 被 disabled，样式仍是原来那套。
+ */
+const floatingStyle = computed(() => {
+  const placement = menuPlacement.value;
+  if (!mobileShell.isMobile || !placement) {
+    return undefined;
+  }
+  return {
+    position: "fixed",
+    top: `${placement.top}px`,
+    left: `${placement.left}px`,
+    right: "auto",
+    maxHeight: `${placement.maxHeight}px`,
+    overflowY: "auto"
+  };
+});
+
+function placeActionMenu(): void {
+  if (!mobileShell.isMobile) {
+    return;
+  }
+  const button = actionButton.value;
+  const menu = actionMenu.value;
+  const drawer = button?.closest(".left-sidebar");
+  if (!button || !menu || !drawer) {
+    return;
+  }
+  menuPlacement.value = resolveMenuPlacement({
+    anchor: button.getBoundingClientRect(),
+    menu: { width: menu.offsetWidth, height: menu.offsetHeight },
+    container: drawer.getBoundingClientRect()
+  });
+}
+
+function closeActionMenu(): void {
+  actionMenuOpen.value = false;
+  menuPlacement.value = null;
+}
+
+function toggleActionMenu(): void {
+  if (actionMenuOpen.value) {
+    closeActionMenu();
+    return;
+  }
+  actionMenuOpen.value = true;
+  // 先渲染出菜单才能量到它的尺寸，所以落点放在下一帧算。
+  void nextTick(() => placeActionMenu());
+}
+
 const creationBookDrag = useCreationBookDrag(
   () => props.section.id,
   (payload) => emit("reorderCreationBook", payload)
@@ -129,31 +201,61 @@ const actionItems = computed<
 });
 
 function activateResourceAction(action: ResourceSectionAction): void {
-  actionMenuOpen.value = false;
+  closeActionMenu();
   emit("resourceAction", { domain: props.section.id, action });
 }
 
+/*
+ * ⚠️ 菜单在手机端被 Teleport 到 body，已经不在 actionArea 里了。
+ * 判定里必须带上 actionMenu，否则「按下去 → 误判为点了外面 → 菜单被卸载 →
+ * click 永远不触发」，表现就是菜单项点不动。
+ */
+function isInsideActionMenu(target: Node | null): boolean {
+  if (!target) {
+    return false;
+  }
+  return (
+    (actionArea.value?.contains(target) ?? false) ||
+    (actionMenu.value?.contains(target) ?? false)
+  );
+}
+
 function handleDocumentPointerDown(event: PointerEvent): void {
-  if (actionArea.value?.contains(event.target as Node)) {
+  if (isInsideActionMenu(event.target as Node)) {
     return;
   }
-  actionMenuOpen.value = false;
+  closeActionMenu();
 }
 
 function handleDocumentKeydown(event: KeyboardEvent): void {
   if (event.key === "Escape") {
-    actionMenuOpen.value = false;
+    closeActionMenu();
+  }
+}
+
+/** 菜单是 fixed 落点，滚动/改尺寸后坐标就失效了；关掉比错位便宜。 */
+function handleLayoutShift(): void {
+  if (actionMenuOpen.value) {
+    closeActionMenu();
   }
 }
 
 onMounted(() => {
   document.addEventListener("pointerdown", handleDocumentPointerDown);
   document.addEventListener("keydown", handleDocumentKeydown);
+  // capture：普通的 addEventListener("scroll") 收不到内层容器的滚动
+  document.addEventListener("scroll", handleLayoutShift, {
+    capture: true,
+    passive: true
+  });
+  window.addEventListener("resize", handleLayoutShift);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", handleDocumentPointerDown);
   document.removeEventListener("keydown", handleDocumentKeydown);
+  document.removeEventListener("scroll", handleLayoutShift, true);
+  window.removeEventListener("resize", handleLayoutShift);
 });
 </script>
 
@@ -175,31 +277,46 @@ onBeforeUnmount(() => {
       </button>
       <div ref="actionArea" class="section-action-area">
         <button
+          ref="actionButton"
           class="section-action"
           :class="{ 'is-active': actionMenuOpen }"
           type="button"
           :aria-label="`${section.label}新建或导入`"
           :aria-expanded="actionMenuOpen"
           aria-haspopup="menu"
-          @click="actionMenuOpen = !actionMenuOpen"
+          @click="toggleActionMenu"
         >
           <AppIcon name="plus" :size="14" />
         </button>
 
-        <div v-if="actionMenuOpen" class="section-action-menu" role="menu">
-          <button
-            v-for="item in actionItems"
-            :key="item.id"
-            class="section-action-menu-item"
-            type="button"
-            role="menuitem"
-            :data-resource-action="`${section.id}-${item.id}`"
-            @click="activateResourceAction(item.id)"
+        <!--
+          手机端 Teleport 到 body：抽屉的滚动容器是 `overflow-y: auto`，
+          菜单留在里面就一定会被裁（见 floatingStyle 上面的注释）。
+          桌面端 disabled，DOM 与样式和以前完全一致。
+        -->
+        <Teleport to="body" :disabled="!mobileShell.isMobile">
+          <div
+            v-if="actionMenuOpen"
+            ref="actionMenu"
+            class="section-action-menu"
+            :class="{ 'is-floating': mobileShell.isMobile }"
+            :style="floatingStyle"
+            role="menu"
           >
-            <AppIcon :name="item.icon" :size="17" />
-            <span>{{ item.label }}</span>
-          </button>
-        </div>
+            <button
+              v-for="item in actionItems"
+              :key="item.id"
+              class="section-action-menu-item"
+              type="button"
+              role="menuitem"
+              :data-resource-action="`${section.id}-${item.id}`"
+              @click="activateResourceAction(item.id)"
+            >
+              <AppIcon :name="item.icon" :size="17" />
+              <span>{{ item.label }}</span>
+            </button>
+          </div>
+        </Teleport>
       </div>
     </div>
 
