@@ -997,7 +997,7 @@ onBeforeUnmount(() => {
 
       <!--
         手机端：官方把字数放在工具条最右（`… ⇄ ｜ 6 字`）。桌面端这一份不显示，
-        字数仍在底栏 —— 显隐规则在 styles/right-editor.css 与 mobile-shell.css。
+        字数仍在底栏 —— 显隐规则在 styles/mobile-shell.css（`right-editor.css` 从未被加载，已删）。
       -->
       <EditorCharacterCount
         class="editor-toolbar-count"

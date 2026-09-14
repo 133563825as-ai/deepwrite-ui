@@ -12,6 +12,30 @@
   min-width: 0;
 }
 
+/* ---------------- 工作目录卡片（本页上半部分） ---------------- */
+
+/*
+ * 选择目录的按钮搬到标题行右侧（原来单独占一行 + 一段长说明）。
+ * 选择器带 `.workspace-settings-panel` 前缀是为了压过 styles.css 里的同名规则：
+ * `@import` 进来的样式排在 styles.css 自己的规则**前面**，同权重时会输。
+ */
+.workspace-settings-panel .workspace-directory-choose {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* 路径允许折行（原样式是 nowrap + 省略号，手机上根本读不全）。 */
+.workspace-settings-panel .directory-card code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+/* 「待设置」用中性色，别用成功绿 —— 绿底说的是「已启用」。 */
+.workspace-settings-panel .directory-card.is-pending > span {
+  background: var(--surface-muted);
+  color: var(--text-tertiary);
+}
+
 /* ---------------- 面包屑 ---------------- */
 
 .workspace-files-breadcrumb {
@@ -57,7 +81,14 @@
   margin: 0;
   color: var(--text-tertiary);
   font-size: 0.857143rem;
-  word-break: break-all;
+  /*
+   * 长路径要能断，但**不能 `break-all`** —— 那会在任意位置劈开单词，
+   * 真机截图里就是「…/Documents/DeepWrit」+「e」断在字母中间。
+   * `overflow-wrap: anywhere` 只在放不下时才断，且优先在 `/` 之后断。
+   */
+  overflow-wrap: anywhere;
+  word-break: normal;
+  user-select: text;
 }
 
 /* ---------------- 操作行 ---------------- */
@@ -66,6 +97,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* 纯图标动作（刷新）：三个按钮才排得进一行，不然「刷新」会被挤到第二行。 */
+.workspace-files-action.is-icon {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
 }
 
 .workspace-files-action {

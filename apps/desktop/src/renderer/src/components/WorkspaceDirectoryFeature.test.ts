@@ -17,7 +17,10 @@ describe("WorkspaceDirectoryFeature", () => {
     // 全部在 WorkspaceFilesBrowser 里，这一层不许长出第二份实现 ——
     // 否则又是一个越改越大的上帝组件（AGENTS.md 的体量约束）。
     expect(source).toContain("<WorkspaceFilesBrowser");
-    expect(source).toContain("workspace-files");
+    // 卡片显示的目录以子组件实测到的根为准（`update:root`）——
+    // 顺手修掉一条早就失效的断言：原来这里查的是 `workspace-files`，
+    // 而本文件里从来没有过这个字符串（真正带它的 class 在子组件里）。
+    expect(source).toContain('@update:root="browserRoot = $event"');
     expect(source).not.toContain("workspaceFiles.list");
     expect(source).not.toContain("WorkspaceFileEditor");
   });

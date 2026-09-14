@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted } from "vue";
 import AppIcon from "./AppIcon.vue";
 import {
   useMobileShellStore,
   type MobilePane
 } from "../stores/mobileShellStore";
 import { useLayoutStore } from "../stores/layoutStore";
+import { useMobileBackBridge } from "../composables/useMobileBackBridge";
+import { useMobilePaneSwipe } from "../composables/useMobilePaneSwipe";
 
 /**
  * 手机端顶栏。
@@ -16,6 +18,8 @@ import { useLayoutStore } from "../stores/layoutStore";
  * （见 styles/mobile-shell.css）。
  *
  * 桌面端不渲染任何东西（整个组件只在 data-mobile="true" 时可见）。
+ * 手机端的两个手势（返回桥、左右滑切栏）也挂在这里 —— 它本来就只在手机端存在，
+ * 而且已经有「顶栏返回」这套同级逻辑，放两处必然漂。
  */
 const shell = useMobileShellStore();
 const layout = useLayoutStore();
@@ -37,17 +41,23 @@ onBeforeUnmount(() => {
 });
 
 /**
- * 顶栏返回键。
+ * 顶栏返回键 / 系统返回（手势与返回键走同一条）。
  *
- * 三种情形，顺序不能反：
+ * 顺序不能反：
+ *  0. 抽屉开着 → 先关抽屉（它就是当前最「上一层」的东西）；
  *  1. 停在设置子页 → 退回设置的分组列表（不然直接跳出设置，用户得从头再点）；
  *  2. 停在工作区功能页（工作目录 / 长篇拆书 / 技能广场…）→ 退回对话页。
  *     ⚠️ 这一条不能少：光调 layout.showWorkspace() 只把 currentView 设成
  *     "workspace"，workspaceMainView 还停在功能页上 —— 按了等于没按，
  *     用户看到的就是「打开工作区后无法返回」；
- *  3. 其余（设置根列表 / 对话页）→ 回工作区。
+ *  3. 写作栏 → 回聊天栏（两栏是平级的，返回手势先回到「上一个界面」）；
+ *  4. 其余（设置根列表 / 对话页）→ 回工作区。
  */
 function goBack(): void {
+  if (shell.drawerOpen) {
+    shell.closeDrawer();
+    return;
+  }
   if (shell.settingsSubPageTitle) {
     shell.setSettingsSubPage("");
     return;
@@ -59,13 +69,52 @@ function goBack(): void {
     layout.showWorkspaceFeature("conversation");
     return;
   }
+  // ⚠️ 这一条必须在「设置 → 回工作区」之前：在设置页里按返回应该离开设置，
+  // 而不是先偷偷把栏切了。
+  if (layout.currentView === "settings") {
+    layout.showWorkspace();
+    return;
+  }
+  if (layout.currentView === "workspace" && shell.activePane === "writing") {
+    shell.selectPane("chat");
+    return;
+  }
   layout.showWorkspace();
 }
 
-/** 顶栏「工作区」：整页打开工作区（工作目录 + 文件浏览）。 */
-function openWorkspaceFiles(): void {
-  layout.showWorkspaceFeature("directory");
-}
+/**
+ * 「现在按返回键，App 内还能不能退一级」—— 必须与 `goBack()` 一一对应：
+ * 这里说能退，`goBack()` 就必须真的退得动；两边不一致用户就会看到
+ * 「按了没反应」或「莫名退出」（§13.2 的教训）。
+ * 全 false = 已经在最外层（对话页的聊天栏），交给系统退出 App。
+ */
+const canGoBack = computed(
+  () =>
+    shell.isMobile &&
+    (shell.drawerOpen ||
+      Boolean(shell.settingsSubPageTitle) ||
+      layout.currentView === "settings" ||
+      (layout.currentView === "workspace" &&
+        layout.workspaceMainView !== "conversation") ||
+      shell.activePane === "writing")
+);
+
+useMobileBackBridge({
+  enabled: () => shell.isMobile,
+  canGoBack: () => canGoBack.value,
+  goBack
+});
+
+// 左右滑切栏：抽屉开着或停在整页详情/设置时不生效，免得和别的滑动打架。
+useMobilePaneSwipe({
+  enabled: () =>
+    shell.isMobile &&
+    !shell.drawerOpen &&
+    layout.currentView === "workspace" &&
+    layout.workspaceMainView === "conversation",
+  current: () => shell.activePane,
+  select: (pane) => shell.selectPane(pane)
+});
 </script>
 
 <template>
@@ -113,18 +162,13 @@ function openWorkspaceFiles(): void {
           {{ pane.label }}
         </button>
         <!--
-          「工作区」不是第三个 pane（它不进聊天/写作那种左右分栏），而是整页的
-          功能页 —— 所以它走 layout.showWorkspaceFeature，点完顶栏会切成
-          「‹ 工作区」，和设置页同一套详情页语义。
+          ⚠️ 顶栏这里**不放**「工作区」入口（用户：「首页上面的排版不好看，把工作区去掉，
+          只保留设置里面的」）。两个原因：
+            1. 它不是同类 tab —— 聊天/写作切的是左右分栏（activePane），工作区是整页跳转
+               （layout.showWorkspaceFeature），塞进 role="tablist" 语义就是错的；
+            2. 三个中文标签挤在顶栏里会各自折成两行（聊/天、工/作/区）。
+          入口保留在「设置 → 工作目录」（SettingsGroupedList），抽屉里也有一份。
         -->
-        <button
-          class="mobile-app-bar-tab"
-          type="button"
-          aria-label="打开工作区"
-          @click="openWorkspaceFiles"
-        >
-          工作区
-        </button>
       </div>
       <!--
         右侧动作槽：对话栏把「历史对话 / 新建对话」Teleport 到这里

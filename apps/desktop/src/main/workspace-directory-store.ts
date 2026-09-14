@@ -20,6 +20,25 @@ function isNodeError(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code;
 }
 
+/**
+ * 配置里存的路径是不是**上一版的默认目录**。
+ *
+ * 用途只有搬家：Android 端的默认工作目录从 `Documents/DeepWrite` 换到了
+ * `Download/DeepWrite`，而老装机用户的配置里已经写死了旧默认值 ——
+ * 不认这一下，「改默认目录」对他们完全不生效。
+ * 比较的是 `resolve` 之后的字符串（配置里存的就是 realpath）。
+ */
+function isLegacyDefaultPath(
+  path: string,
+  legacyDefaults: readonly string[]
+): boolean {
+  const normalized = resolve(path);
+  return legacyDefaults.some((legacy) => {
+    const candidate = (legacy ?? "").trim();
+    return candidate !== "" && resolve(candidate) === normalized;
+  });
+}
+
 export class WorkspaceDirectoryStore {
   readonly settingsPath: string;
   private writeChain: Promise<void> = Promise.resolve();
@@ -59,11 +78,19 @@ export class WorkspaceDirectoryStore {
     }
   }
 
+  /**
+   * 首次使用时把默认目录写进配置；已经选过就保留。
+   *
+   * `legacyDefaults` 是**一次性搬家**用的：配置里存的如果正好是上一版的默认值，
+   * 就重指到新的默认值（见 `isLegacyDefaultPath`）。只改配置，**不动任何文件** ——
+   * 用户的稿子还在原地，要不要搬由用户自己决定。
+   */
   async initializeDefault(
-    defaultPath: string
+    defaultPath: string,
+    legacyDefaults: readonly string[] = []
   ): Promise<WorkspaceDirectorySettings> {
     const current = await this.list();
-    if (current.path) {
+    if (current.path && !isLegacyDefaultPath(current.path, legacyDefaults)) {
       return current;
     }
 

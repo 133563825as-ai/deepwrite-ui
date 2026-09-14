@@ -3200,7 +3200,11 @@ if (!hasSingleInstanceLock) {
     chatAssistantProjectConfigStore = new ChatAssistantProjectConfigStore(
       userDataPath
     );
-    await workspaceDirectoryStore.initializeDefault(app.getPath("documents"));
+    // 第二个参数是「上一版的默认工作目录」：Android 壳从 Documents/DeepWrite 换到
+    // Download/DeepWrite 后，老装机用户的配置里写死的还是旧值，认一下才换得过来。
+    await workspaceDirectoryStore.initializeDefault(app.getPath("documents"), [
+      process.env.DEEPWRITE_LEGACY_DOCUMENTS_PATH ?? ""
+    ]);
     await loadAndSyncNativeAppearanceChrome();
     syncGeneralSettings((await generalSettingsStore.list()).settings);
     updateService = new UpdateService(() => {

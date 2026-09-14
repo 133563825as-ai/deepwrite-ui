@@ -255,7 +255,8 @@ export function useWorkspaceFeatureHostCoordinator(
 
   async function loadWorkspaceDirectory(): Promise<void> {
     const api = options.api();
-    if (!active || !api) return;
+    if (!active) return;
+    if (!api) return options.notifications.error("宿主接口未就绪。");
     try {
       await settingsStore.ensureWorkspaceDirectoryLoaded(() =>
         api.workspaceDirectory.list()

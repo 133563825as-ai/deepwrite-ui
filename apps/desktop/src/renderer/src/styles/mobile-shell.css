@@ -77,6 +77,13 @@
   font-weight: 600;
   color: var(--text-tertiary);
   background: transparent;
+  /*
+   * ⚠️ 必须 nowrap。`.mobile-app-bar-tabs` 是 `position: absolute; left: 50%`，
+   * 绝对定位盒的可用宽度只有包含块的**一半**（从 left:50% 到右边界），
+   * 标签因此被压到只剩一两个字宽，中文逐字换行 —— 真机截图里就是
+   * 「聊 / 天」「工 / 作 / 区」各自竖着排。三个标签时最明显，两个也保不齐。
+   */
+  white-space: nowrap;
 }
 
 .mobile-app-bar-tab.is-active {

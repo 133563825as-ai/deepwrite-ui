@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import AppIcon from "./AppIcon.vue";
 import WorkspaceFilesBrowser from "./WorkspaceFilesBrowser.vue";
 import type { WorkspaceFilesApi } from "../composables/useWorkspaceFiles";
@@ -15,6 +15,10 @@ import type { WorkspaceFilesApi } from "../composables/useWorkspaceFiles";
  * 一个能看见、能读写的工作区（原话：「工作区太粗糙了」）。
  *
  * ⚠️ 文件操作都走 Main 的 `workspaceFiles.*` 命令，这一层不碰 fs。
+ *
+ * ⚠️ 卡片显示的目录**以文件浏览器量到的真实根为准**：两处走的是同一个
+ * 主进程存储，但渲染层这份设置值是异步加载的，历史上出现过
+ * 「卡片写『尚未选择工作目录』、下面却已经在列文件了」的自相矛盾。
  */
 const props = defineProps<{
   path: string | null;
@@ -28,6 +32,16 @@ const emit = defineEmits<{
 }>();
 
 const browser = ref<InstanceType<typeof WorkspaceFilesBrowser> | null>(null);
+/** 文件浏览器实测到的根目录 —— 它才是「现在真正生效的那个」。 */
+const browserRoot = ref<string | null>(null);
+
+const effectivePath = computed(() => props.path ?? browserRoot.value);
+/** 设置值还没到、但浏览器已经知道根目录时，不要再喊「尚未选择」。 */
+const pendingChoice = computed(() => !effectivePath.value && !props.loading);
+const statusText = computed(() => {
+  if (effectivePath.value) return "已启用";
+  return props.loading ? "读取中" : "待设置";
+});
 
 function filesApi(): WorkspaceFilesApi | undefined {
   if (props.api) return props.api();
@@ -50,37 +64,38 @@ watch(
         <span class="dialog-eyebrow">DeepWrite</span>
         <h2>工作区</h2>
       </div>
+      <button
+        class="dialog-secondary-button workspace-directory-choose"
+        type="button"
+        :disabled="loading"
+        @click="emit('choose')"
+      >
+        {{ loading ? "选择中…" : effectivePath ? "切换目录" : "选择目录" }}
+      </button>
     </header>
 
     <div class="dialog-content">
-      <p class="dialog-description">
-        这里决定以后新建和导入项目的默认位置。切换目录不会移动或影响已经打开的书籍、素材库和技能库。
-      </p>
-      <div class="directory-card">
+      <div class="directory-card" :class="{ 'is-pending': pendingChoice }">
         <AppIcon name="directory" :size="20" />
         <div>
-          <strong>{{ path ? "当前工作目录" : "尚未选择工作目录" }}</strong>
-          <code>{{ path ?? "首次创建或导入时也会提示选择" }}</code>
+          <strong>{{
+            effectivePath ? "当前工作目录" : "尚未选择工作目录"
+          }}</strong>
+          <code>{{ effectivePath ?? "首次创建或导入时也会提示选择" }}</code>
         </div>
-        <span>{{ path ? "已启用" : "待设置" }}</span>
+        <span>{{ statusText }}</span>
       </div>
-      <div class="dialog-note">
-        新书和旧版导入保存在 books，新素材库保存在 materials，新技能库保存在
-        skills；长篇拆书导入快照保存在 long-book-analysis-sources。项目仍采用
-        deepwrite.json + Markdown 文件结构，可由 Git 或同步盘直接管理。
-      </div>
-      <div class="dialog-actions">
-        <button
-          class="dialog-primary-button"
-          type="button"
-          :disabled="loading"
-          @click="emit('choose')"
-        >
-          {{ loading ? "选择中…" : path ? "切换工作目录" : "选择工作目录" }}
-        </button>
-      </div>
+      <p class="dialog-description">
+        这里决定以后新建和导入项目的默认位置：books / materials / skills，
+        长篇拆书快照在
+        long-book-analysis-sources。变更目录不会移动已打开的作品。
+      </p>
 
-      <WorkspaceFilesBrowser ref="browser" :api="filesApi" />
+      <WorkspaceFilesBrowser
+        ref="browser"
+        :api="filesApi"
+        @update:root="browserRoot = $event"
+      />
     </div>
   </section>
 </template>

@@ -87,4 +87,48 @@ describe("WorkspaceDirectoryStore", () => {
       new WorkspaceDirectoryStore(join(root, "user-data")).save(file)
     ).rejects.toThrow(/真实文件夹/u);
   });
+
+  it("re-points a legacy default directory once, without touching files", async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), "deepwrite-workspace-directory-legacy-")
+    );
+    temporaryRoots.push(root);
+    const legacy = join(root, "Documents", "DeepWrite");
+    const next = join(root, "Download", "DeepWrite");
+    await mkdir(legacy, { recursive: true });
+
+    const store = new WorkspaceDirectoryStore(join(root, "user-data"));
+    const canonicalLegacy = await realpath(legacy);
+    await store.save(legacy);
+
+    // 配置里存的正是旧默认值 → 重指到新默认值。
+    await expect(
+      store.initializeDefault(next, [canonicalLegacy])
+    ).resolves.toEqual({ path: await realpath(next) });
+    await expect(store.list()).resolves.toEqual({ path: await realpath(next) });
+
+    // 旧目录还在原地（只改配置，不搬文件）。
+    await expect(realpath(legacy)).resolves.toBe(canonicalLegacy);
+  });
+
+  it("keeps a user-picked directory that is not the legacy default", async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), "deepwrite-workspace-directory-kept-")
+    );
+    temporaryRoots.push(root);
+    const legacy = join(root, "Documents", "DeepWrite");
+    const picked = join(root, "我的工作区");
+    const next = join(root, "Download", "DeepWrite");
+    await Promise.all([
+      mkdir(legacy, { recursive: true }),
+      mkdir(picked, { recursive: true })
+    ]);
+
+    const store = new WorkspaceDirectoryStore(join(root, "user-data"));
+    await store.save(picked);
+
+    await expect(
+      store.initializeDefault(next, [await realpath(legacy)])
+    ).resolves.toEqual({ path: await realpath(picked) });
+  });
 });

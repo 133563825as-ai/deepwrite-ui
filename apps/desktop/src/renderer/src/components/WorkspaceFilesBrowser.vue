@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import type { WorkspaceFileEntry } from "@deepwrite/contracts/renderer";
 import AppIcon from "./AppIcon.vue";
 import WorkspaceFileEditor from "./WorkspaceFileEditor.vue";
@@ -15,8 +15,13 @@ import { uiMessage } from "../ui-feedback";
  * 交互骨架参照 RikkaHub 的工作区（列表 + 每行 ⋮ + 空态 + 新建），
  * 但**不做**它的多工作区 / proot Linux / 终端 —— DeepWrite 只有一个工作目录，
  * 那些搬过来会分裂现有的作品与资料库体系。
+ *
+ * ⚠️ `listing.root` 是**主进程实测的根目录**，比渲染层异步加载的那份设置值可靠：
+ * 页面上方的卡片要显示哪个目录，以这个为准（`update:root` 往上抛）。
  */
 const props = defineProps<{ api: () => WorkspaceFilesApi | undefined }>();
+
+const emit = defineEmits<{ "update:root": [root: string | null] }>();
 
 const {
   listing,
@@ -55,7 +60,12 @@ onMounted(() => {
   void open("");
 });
 
-defineExpose({ refresh });
+// 根目录就往上抛一份，页面上方的卡片不必自己去猜。
+watch(rootPath, (root) => emit("update:root", root || null), {
+  immediate: true
+});
+
+defineExpose({ refresh, rootPath });
 
 function sizeText(entry: WorkspaceFileEntry): string {
   if (entry.kind === "directory") return "";
@@ -162,12 +172,14 @@ async function confirmDialog(): Promise<void> {
         <AppIcon name="folder" :size="15" />新建文件夹
       </button>
       <button
-        class="workspace-files-action"
+        class="workspace-files-action is-icon"
         type="button"
+        aria-label="刷新列表"
+        title="刷新列表"
         :disabled="loading"
         @click="refresh()"
       >
-        刷新
+        <AppIcon name="redo" :size="15" />
       </button>
     </div>
 
