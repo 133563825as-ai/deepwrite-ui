@@ -570,3 +570,42 @@
 :root[data-mobile="true"] .team-layout {
   display: block;
 }
+
+/* ---------------- 设置页 · 自定义模型配置 ---------------- */
+
+/*
+ * 「添加模型」表单在桌面端是写死的两列（styles.css 的 .model-form-grid），
+ * 没有任何窄屏分支。手机上每列只剩 ~150px：下拉框里的值被截成
+ * 「OpenA…」「自动 (…」，API 地址那种长串更是只看得见尾巴。
+ * 手机上收成一列 —— 截图里所有截断都源于这一条。
+ * （.model-form-grid label.is-wide 是 grid-column: 1 / -1，单列下依然成立。）
+ */
+:root[data-mobile="true"] .model-form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* 滚动区左右各 22px 在手机上太占宽度，字段跟着变窄。 */
+:root[data-mobile="true"] .model-config-scroll-area {
+  padding: 16px 14px 18px;
+}
+
+/* 温度档位是写死的三列，单列表单里放不下三个。 */
+:root[data-mobile="true"] .model-temperature-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/*
+ * 底部两个按钮（.dialog-actions 是 flex-end 且不换行）：手机上互相挤压，
+ * 文字被折成两行 —— 截图里「测试当前填写」「应用并保存配置」都是两行。
+ * 让它们各占一半、文字不折行。
+ * ⚠️ 只作用于模型编辑器内部：.dialog-actions 是全站弹窗共用的类，
+ * 不能全局改（会影响所有对话框）。
+ */
+:root[data-mobile="true"] .model-editor .dialog-actions {
+  gap: 8px;
+}
+
+:root[data-mobile="true"] .model-editor .dialog-actions > button {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
