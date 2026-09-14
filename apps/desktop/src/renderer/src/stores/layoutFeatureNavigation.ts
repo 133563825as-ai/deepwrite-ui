@@ -58,7 +58,7 @@ const WORKSPACE_FEATURE_TITLES: Record<
   Exclude<WorkspaceMainView, "conversation">,
   string
 > = {
-  directory: "工作目录",
+  directory: "工作区",
   models: "自定义模型配置",
   imitation: "短篇学习仿写",
   "long-book-analysis": "长篇拆书分析",

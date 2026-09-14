@@ -21,6 +21,7 @@ export type * from "./long-agent-settings";
 export type * from "./long-agent-team";
 export type * from "./long-book-analysis";
 export type * from "./style-comparison";
+export type * from "./workspace-files";
 export {
   STYLE_COMPARISON_TEXT_LIMIT,
   STYLE_COMPARISON_METHOD_LIMIT,

@@ -36,9 +36,9 @@ const groups = computed(() =>
 <template>
   <nav class="settings-grouped-list" aria-label="设置分类">
     <!--
-      「工作目录」入口放最前。手机上进设置之后要回到工作区得先退出设置，
-      用户明确要「在设置界面可以直接进入工作区」。目标就是工作目录那一页
-      （官方抽屉里叫「工作目录」，这里用同一个名字免得对不上号）。
+      「工作区」入口放最前。手机上进设置之后要回到工作区得先退出设置，
+      用户明确要「在设置界面可以直接进入工作区」。目标就是工作区那一页
+      （工作目录卡片 + 文件浏览，和抽屉里那一项是同一个页面，所以同名）。
     -->
     <section class="settings-group settings-group-workspace">
       <div class="settings-group-card">
@@ -48,7 +48,7 @@ const groups = computed(() =>
           @click="emit('openWorkspace')"
         >
           <AppIcon name="directory" :size="18" />
-          <span class="settings-group-row-label">工作目录</span>
+          <span class="settings-group-row-label">工作区</span>
           <AppIcon
             class="settings-group-row-chevron"
             name="chevron"

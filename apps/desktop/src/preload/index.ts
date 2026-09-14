@@ -1,6 +1,7 @@
 import { conversationExport } from "./conversation-export-api";
 import { cloudBackup } from "./cloud-backup-api";
 import { deviceSync } from "./device-sync-api";
+import { workspaceFiles } from "./workspace-files-api";
 import { conversationPersistence } from "./conversation-persistence-api";
 import {
   listAgentTeams,
@@ -1426,6 +1427,7 @@ const api: DeepWriteApi = {
     list: listWorkspaceDirectory,
     choose: chooseWorkspaceDirectory
   },
+  workspaceFiles,
   appearance,
   generalSettings: {
     list: listGeneralSettings,

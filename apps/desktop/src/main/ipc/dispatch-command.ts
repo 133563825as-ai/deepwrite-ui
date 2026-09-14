@@ -13,6 +13,7 @@ import { handleModelCommands } from "./model-commands";
 import { handleRendererStateCommands } from "./renderer-state-commands";
 import { handleSessionCommands } from "./session-commands";
 import { handleSettingsCommands } from "./settings-commands";
+import { handleWorkspaceFileCommands } from "./workspace-file-commands";
 
 export async function dispatchCommand(
   ctx: IpcCommandContext,
@@ -41,6 +42,7 @@ export async function dispatchCommand(
   const result =
     (await handleManuscriptCommands(ctx, command)) ??
     (await handleSettingsCommands(ctx, command)) ??
+    (await handleWorkspaceFileCommands(ctx, command)) ??
     (await handleLongCommands(ctx, command)) ??
     (await handleCatalogCommands(ctx, command)) ??
     (await handleRendererStateCommands(ctx, command)) ??

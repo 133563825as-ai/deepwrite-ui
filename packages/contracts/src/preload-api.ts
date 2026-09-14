@@ -36,6 +36,17 @@ import type {
 } from "./writing-context";
 import type { WorkspaceDirectorySettings } from "./workspace-directory";
 import type {
+  WorkspaceFileListing,
+  WorkspaceFilePathResult,
+  WorkspaceFileText,
+  WorkspaceFilesCreateInput,
+  WorkspaceFilesListInput,
+  WorkspaceFilesReadTextInput,
+  WorkspaceFilesRemoveInput,
+  WorkspaceFilesRenameInput,
+  WorkspaceFilesWriteTextInput
+} from "./workspace-files";
+import type {
   AppearanceCustomFontId,
   AppearanceFontCatalogSnapshot,
   AppearanceFontInstallResult,
@@ -387,6 +398,16 @@ export interface DeepWriteApi {
   workspaceDirectory: {
     list(): Promise<WorkspaceDirectorySettings>;
     choose(): Promise<WorkspaceDirectorySettings | null>;
+  };
+  workspaceFiles: {
+    list(input: WorkspaceFilesListInput): Promise<WorkspaceFileListing>;
+    readText(input: WorkspaceFilesReadTextInput): Promise<WorkspaceFileText>;
+    writeText(
+      input: WorkspaceFilesWriteTextInput
+    ): Promise<WorkspaceFilePathResult>;
+    create(input: WorkspaceFilesCreateInput): Promise<WorkspaceFilePathResult>;
+    rename(input: WorkspaceFilesRenameInput): Promise<WorkspaceFilePathResult>;
+    remove(input: WorkspaceFilesRemoveInput): Promise<WorkspaceFilePathResult>;
   };
   appearance: {
     list(): Promise<AppearanceSettingsSnapshot>;

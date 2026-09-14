@@ -187,6 +187,7 @@ import { createMainWindowStartupGate } from "./main-window-startup-gate";
 import { configureBootstrapEnvironment } from "./bootstrap-environment";
 import { handleModelCommands } from "./ipc/model-commands";
 import { handleAppearanceCommands } from "./ipc/appearance-commands";
+import { handleWorkspaceFileCommands } from "./ipc/workspace-file-commands";
 import { LongBookAnalysisConfigStore } from "./extras/long-book-analysis/config-store";
 import { handleLongBookAnalysisCommands } from "./extras/long-book-analysis/commands";
 import {
@@ -1435,6 +1436,17 @@ function registerIpc(): void {
       );
       if (appearanceCommandResult) {
         return appearanceCommandResult;
+      }
+
+      const workspaceFileCommandResult = await handleWorkspaceFileCommands(
+        {
+          getWorkspaceDirectory: async () =>
+            (await requireWorkspaceDirectoryStore().list()).path
+        },
+        command
+      );
+      if (workspaceFileCommandResult) {
+        return workspaceFileCommandResult;
       }
 
       const longBookAnalysisCommandResult =

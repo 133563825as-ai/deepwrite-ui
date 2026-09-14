@@ -61,6 +61,11 @@ function goBack(): void {
   }
   layout.showWorkspace();
 }
+
+/** 顶栏「工作区」：整页打开工作区（工作目录 + 文件浏览）。 */
+function openWorkspaceFiles(): void {
+  layout.showWorkspaceFeature("directory");
+}
 </script>
 
 <template>
@@ -106,6 +111,19 @@ function goBack(): void {
           @click="shell.selectPane(pane.id)"
         >
           {{ pane.label }}
+        </button>
+        <!--
+          「工作区」不是第三个 pane（它不进聊天/写作那种左右分栏），而是整页的
+          功能页 —— 所以它走 layout.showWorkspaceFeature，点完顶栏会切成
+          「‹ 工作区」，和设置页同一套详情页语义。
+        -->
+        <button
+          class="mobile-app-bar-tab"
+          type="button"
+          aria-label="打开工作区"
+          @click="openWorkspaceFiles"
+        >
+          工作区
         </button>
       </div>
       <!--

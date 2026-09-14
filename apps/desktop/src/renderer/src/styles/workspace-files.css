@@ -1,0 +1,387 @@
+/*
+ * 手机端「工作区」页：文件浏览 + 文本编辑 + 对话框。
+ *
+ * 单独一个文件而不是往 styles.css 里加：那个文件已经很大，而且它和上游
+ * 每次发版都会冲突；这里的样式只服务这一个页面。
+ */
+
+.workspace-files {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  min-width: 0;
+}
+
+/* ---------------- 面包屑 ---------------- */
+
+.workspace-files-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  min-width: 0;
+  padding-bottom: 2px;
+}
+
+.workspace-files-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.928571rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspace-files-crumb:disabled {
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: default;
+}
+
+.workspace-files-crumb:not(:disabled):hover {
+  background: var(--surface-hover);
+}
+
+.workspace-files-crumb > svg {
+  color: var(--text-tertiary);
+  transform: rotate(-90deg);
+}
+
+.workspace-files-root {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.857143rem;
+  word-break: break-all;
+}
+
+/* ---------------- 操作行 ---------------- */
+
+.workspace-files-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workspace-files-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--theme-line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 0.928571rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspace-files-action:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.workspace-files-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------------- 列表 ---------------- */
+
+.workspace-files-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-files-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  border-radius: 9px;
+}
+
+.workspace-files-row:hover {
+  background: var(--surface-hover);
+}
+
+.workspace-files-entry {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-files-name {
+  overflow: hidden;
+  font-size: 0.964286rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-files-meta {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 0.785714rem;
+  white-space: nowrap;
+}
+
+.workspace-files-row-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.workspace-files-more {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.workspace-files-more:hover {
+  background: var(--surface-hover);
+}
+
+.workspace-files-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 148px;
+  padding: 5px;
+  border: 1px solid var(--theme-line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: 0 10px 28px color-mix(in srgb, #000 16%, transparent);
+}
+
+.workspace-files-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.928571rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspace-files-menu > button:hover {
+  background: var(--surface-hover);
+}
+
+.workspace-files-menu > button.is-danger {
+  color: var(--danger, #d64545);
+}
+
+.workspace-files-hint,
+.workspace-files-empty {
+  margin: 6px 0;
+  color: var(--text-tertiary);
+  font-size: 0.928571rem;
+}
+
+.workspace-files-empty {
+  display: grid;
+  gap: 4px;
+  padding: 22px 0;
+  text-align: center;
+}
+
+.workspace-files-empty > strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* ---------------- 对话框 ---------------- */
+
+.workspace-files-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 78;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: color-mix(in srgb, #000 32%, transparent);
+}
+
+.workspace-files-dialog {
+  width: min(100%, 360px);
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--surface-raised);
+  box-shadow: 0 18px 44px color-mix(in srgb, #000 26%, transparent);
+}
+
+.workspace-files-dialog > h3 {
+  margin: 0;
+  font-size: 1.035714rem;
+}
+
+.workspace-files-dialog-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.928571rem;
+  line-height: 1.5;
+}
+
+.workspace-files-dialog-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--theme-line);
+  border-radius: 9px;
+  background: var(--surface-main);
+  color: var(--text-primary);
+  font-size: 0.964286rem;
+}
+
+.workspace-files-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workspace-files-dialog-actions > button {
+  min-height: 36px;
+  padding: 7px 16px;
+  border: 1px solid var(--theme-line);
+  border-radius: 9px;
+  background: var(--surface-main);
+  color: var(--text-primary);
+  font-size: 0.928571rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspace-files-dialog-actions > button.is-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+
+.workspace-files-dialog-actions > button.is-danger {
+  background: var(--danger, #d64545);
+  color: #fff;
+}
+
+.workspace-files-dialog-actions > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------------- 文本编辑器（整页盖住） ---------------- */
+
+.workspace-file-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 76;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--surface-main);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.workspace-file-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--theme-line);
+}
+
+.workspace-file-editor-title {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.workspace-file-editor-title > strong {
+  overflow: hidden;
+  font-size: 0.964286rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-file-editor-title > small {
+  color: var(--text-tertiary);
+  font-size: 0.785714rem;
+}
+
+.workspace-file-editor-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--theme-line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 0.928571rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspace-file-editor-button.is-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+
+.workspace-file-editor-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.workspace-file-editor-body {
+  width: 100%;
+  height: 100%;
+  padding: 12px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+  border: 0;
+  background: var(--surface-main);
+  color: var(--text-primary);
+  font-family: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.928571rem;
+  line-height: 1.6;
+  resize: none;
+}
+
+.workspace-file-editor-body:focus {
+  outline: none;
+}

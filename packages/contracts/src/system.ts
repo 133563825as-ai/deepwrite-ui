@@ -174,6 +174,7 @@ import {
   WorkspaceDirectoryChooseCommandEnvelopeSchema,
   WorkspaceDirectoryListCommandEnvelopeSchema
 } from "./workspace-directory";
+import { WorkspaceFilesCommandEnvelopeSchemas } from "./workspace-files";
 import {
   AppearanceFontsInstallCommandEnvelopeSchema,
   AppearanceFontsListCommandEnvelopeSchema,
@@ -320,6 +321,7 @@ export const CommandEnvelopeSchema = z.discriminatedUnion("type", [
   AgentTeamsInstallPackageCommandEnvelopeSchema,
   WorkspaceDirectoryListCommandEnvelopeSchema,
   WorkspaceDirectoryChooseCommandEnvelopeSchema,
+  ...WorkspaceFilesCommandEnvelopeSchemas,
   AppearanceListCommandEnvelopeSchema,
   AppearanceSaveCommandEnvelopeSchema,
   AppearanceFontsListCommandEnvelopeSchema,
