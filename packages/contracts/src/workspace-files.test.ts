@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CommandEnvelopeSchema } from "./system";
+import { WorkspaceFileBinarySchema } from "./workspace-files";
 
 /**
  * 手机端「工作区」页的命令契约。
@@ -20,10 +21,11 @@ function envelope(type: string, payload: unknown): unknown {
 }
 
 describe("workspaceFiles 命令契约", () => {
-  it("接受六条合法命令", () => {
+  it("接受七条合法命令", () => {
     const cases: Array<[string, unknown]> = [
       ["workspaceFiles.list", { path: "" }],
       ["workspaceFiles.readText", { path: "books/正文.md" }],
+      ["workspaceFiles.readBinary", { path: "books/插图.png" }],
       [
         "workspaceFiles.writeText",
         { path: "books/正文.md", content: "# 你好" }
@@ -99,6 +101,25 @@ describe("workspaceFiles 命令契约", () => {
           kind: "symlink"
         })
       )
+    ).toThrow();
+  });
+
+  it("readBinary 的返回体要求 mimeType 与 base64", () => {
+    expect(
+      WorkspaceFileBinarySchema.parse({
+        path: "books/插图.png",
+        mimeType: "image/png",
+        size: 70,
+        base64: "iVBORw0KGgo="
+      }).mimeType
+    ).toBe("image/png");
+    expect(() =>
+      WorkspaceFileBinarySchema.parse({
+        path: "books/插图.png",
+        mimeType: "",
+        size: 70,
+        base64: ""
+      })
     ).toThrow();
   });
 });

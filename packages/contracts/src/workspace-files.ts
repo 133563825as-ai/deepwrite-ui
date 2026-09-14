@@ -7,7 +7,8 @@ import { EnvelopeBaseSchema } from "./envelope";
  * 边界：
  *  - 所有路径都是**相对工作目录**的 POSIX 风格相对路径（`books/某书/正文.md`），
  *    空串表示工作目录本身。绝对路径、`..`、指向外部的符号链接一律由 Main 侧拒绝。
- *  - 只有文本文件可以在应用内编辑；二进制只提供「用系统应用打开」。
+ *  - 文本文件在应用内查看与编辑；**图片**走 `readBinary` 拿 base64 预览；
+ *    其余二进制只提示「用 MT 管理器」。
  *  - 这里只定义协议与领域模型，落盘在 `apps/desktop/src/main/workspace-files-service.ts`。
  *
  * ⚠️ 电脑端不接入这个页面（用户明确：手机端为主，电脑端用原版），
@@ -16,6 +17,13 @@ import { EnvelopeBaseSchema } from "./envelope";
 
 /** 单个文本文件的读写上限，超过就只给「打开/分享」。 */
 export const WORKSPACE_TEXT_MAX_BYTES = 1_048_576;
+/**
+ * 单次二进制读取（图片预览）的上限。
+ *
+ * 比文本上限大 —— 手机拍的照片很容易几 MB；但**不能无限**：内容是 base64
+ * 走 IPC 再进内存，8MB 原图会变成约 11MB 的字符串。
+ */
+export const WORKSPACE_BINARY_MAX_BYTES = 8_388_608;
 /** 单次列目录返回的条目上限，防止在超大目录上把内存打满。 */
 export const WORKSPACE_LIST_MAX_ENTRIES = 2_000;
 
@@ -67,6 +75,21 @@ export const WorkspaceFileTextSchema = z.object({
 });
 export type WorkspaceFileText = z.infer<typeof WorkspaceFileTextSchema>;
 
+/**
+ * 二进制文件（当前用途：图片预览）。
+ *
+ * `base64` 而不是 ArrayBuffer：这条命令要走 JSON IPC（电脑端是 Electron 的
+ * structured clone，手机端是 HTTP 桥），base64 是两边都不用改序列化层的写法。
+ */
+export const WorkspaceFileBinarySchema = z.object({
+  path: z.string(),
+  /** 由后缀推出来的 MIME；推不出来给 `application/octet-stream`。 */
+  mimeType: z.string().min(1),
+  size: z.number().int().nonnegative(),
+  base64: z.string()
+});
+export type WorkspaceFileBinary = z.infer<typeof WorkspaceFileBinarySchema>;
+
 export const WorkspaceFilePathResultSchema = z.object({
   path: z.string()
 });
@@ -83,6 +106,12 @@ export const WorkspaceFilesListCommandEnvelopeSchema =
 export const WorkspaceFilesReadTextCommandEnvelopeSchema =
   EnvelopeBaseSchema.extend({
     type: z.literal("workspaceFiles.readText"),
+    payload: z.object({ path: WorkspaceRelativePathSchema })
+  });
+
+export const WorkspaceFilesReadBinaryCommandEnvelopeSchema =
+  EnvelopeBaseSchema.extend({
+    type: z.literal("workspaceFiles.readBinary"),
     payload: z.object({ path: WorkspaceRelativePathSchema })
   });
 
@@ -131,6 +160,9 @@ export interface WorkspaceFilesListInput {
 export interface WorkspaceFilesReadTextInput {
   path: string;
 }
+export interface WorkspaceFilesReadBinaryInput {
+  path: string;
+}
 export interface WorkspaceFilesWriteTextInput {
   path: string;
   content: string;
@@ -152,6 +184,7 @@ export interface WorkspaceFilesRemoveInput {
 export const WorkspaceFilesCommandEnvelopeSchemas = [
   WorkspaceFilesListCommandEnvelopeSchema,
   WorkspaceFilesReadTextCommandEnvelopeSchema,
+  WorkspaceFilesReadBinaryCommandEnvelopeSchema,
   WorkspaceFilesWriteTextCommandEnvelopeSchema,
   WorkspaceFilesCreateCommandEnvelopeSchema,
   WorkspaceFilesRenameCommandEnvelopeSchema,

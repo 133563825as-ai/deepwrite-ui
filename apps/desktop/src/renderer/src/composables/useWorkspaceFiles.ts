@@ -17,6 +17,10 @@ export interface WorkspaceFilesApi {
   readText(input: {
     path: string;
   }): Promise<{ path: string; content: string; size: number }>;
+  /** 二进制读取（图片预览）。 */
+  readBinary(input: {
+    path: string;
+  }): Promise<{ path: string; mimeType: string; size: number; base64: string }>;
   writeText(input: {
     path: string;
     content: string;
@@ -51,6 +55,11 @@ export function useWorkspaceFiles(options: WorkspaceFilesOptions) {
   const editorOriginal = ref("");
   const editorLoading = ref(false);
   const editorSaving = ref(false);
+
+  /** 正在预览的图片；null = 没开预览。`previewUrl` 是 data URL。 */
+  const previewPath = ref<string | null>(null);
+  const previewUrl = ref("");
+  const imageLoading = ref(false);
 
   function requireApi(): WorkspaceFilesApi | undefined {
     const api = options.api();
@@ -180,6 +189,40 @@ export function useWorkspaceFiles(options: WorkspaceFilesOptions) {
     editorOriginal.value = "";
   }
 
+  /**
+   * 图片预览。
+   *
+   * 为什么走契约而不是 `<img src="file:///sdcard/…">`：页面是 http 来源，
+   * 加载 file:// 会被 WebView 拦掉；而 base64 的 data URL 没有这个问题，
+   * 也不用为了预览在本地服务上开一条静态文件路由。
+   */
+  async function openImage(entry: WorkspaceFileEntry): Promise<void> {
+    const api = requireApi();
+    if (!api) return;
+    imageLoading.value = true;
+    previewPath.value = entry.path;
+    previewUrl.value = "";
+    try {
+      const file = await api.readBinary({ path: entry.path });
+      if (!file.mimeType.startsWith("image/")) {
+        uiMessage.info("这类文件还不能在应用内预览，可用 MT 管理器查看。");
+        previewPath.value = null;
+        return;
+      }
+      previewUrl.value = `data:${file.mimeType};base64,${file.base64}`;
+    } catch (error: unknown) {
+      uiMessage.error(errorText(error, "预览失败。"));
+      previewPath.value = null;
+    } finally {
+      imageLoading.value = false;
+    }
+  }
+
+  function closeImage(): void {
+    previewPath.value = null;
+    previewUrl.value = "";
+  }
+
   return {
     listing,
     loading,
@@ -190,6 +233,9 @@ export function useWorkspaceFiles(options: WorkspaceFilesOptions) {
     editorOriginal,
     editorLoading,
     editorSaving,
+    previewPath,
+    previewUrl,
+    imageLoading,
     open,
     refresh,
     createEntry,
@@ -197,6 +243,8 @@ export function useWorkspaceFiles(options: WorkspaceFilesOptions) {
     removeEntry,
     openFile,
     saveFile,
-    closeEditor
+    closeEditor,
+    openImage,
+    closeImage
   };
 }

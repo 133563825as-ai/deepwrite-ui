@@ -1,4 +1,5 @@
 import {
+  WorkspaceFileBinarySchema,
   WorkspaceFileListingSchema,
   WorkspaceFilePathResultSchema,
   WorkspaceFileTextSchema,
@@ -62,6 +63,13 @@ export async function handleWorkspaceFileCommands(
           command,
           WorkspaceFileTextSchema.parse(
             await service.readText(command.payload.path)
+          )
+        );
+      case "workspaceFiles.readBinary":
+        return accepted(
+          command,
+          WorkspaceFileBinarySchema.parse(
+            await service.readBinary(command.payload.path)
           )
         );
       case "workspaceFiles.writeText":

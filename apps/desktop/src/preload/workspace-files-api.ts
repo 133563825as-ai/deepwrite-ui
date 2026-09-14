@@ -1,9 +1,11 @@
 import {
+  WorkspaceFileBinarySchema,
   WorkspaceFileListingSchema,
   WorkspaceFilePathResultSchema,
   WorkspaceFileTextSchema,
   createEnvelope,
   type WorkspaceEntryKind,
+  type WorkspaceFileBinary,
   type WorkspaceFileListing,
   type WorkspaceFilePathResult,
   type WorkspaceFileText
@@ -119,9 +121,29 @@ export async function removeWorkspaceFileEntry(input: {
   );
 }
 
+/** 二进制读取（当前只有图片预览在用）；内容以 base64 回传。 */
+export async function readWorkspaceFileBinary(input: {
+  path: string;
+}): Promise<WorkspaceFileBinary> {
+  const id = browserId("cmd_workspace_files_read_binary");
+  return WorkspaceFileBinarySchema.parse(
+    await invokeCommand<WorkspaceFileBinary>(
+      createEnvelope(
+        "workspaceFiles.readBinary",
+        { path: input.path },
+        {
+          id,
+          correlationId: id
+        }
+      )
+    )
+  );
+}
+
 export const workspaceFiles = {
   list: listWorkspaceFiles,
   readText: readWorkspaceFileText,
+  readBinary: readWorkspaceFileBinary,
   writeText: writeWorkspaceFileText,
   create: createWorkspaceFileEntry,
   rename: renameWorkspaceFileEntry,

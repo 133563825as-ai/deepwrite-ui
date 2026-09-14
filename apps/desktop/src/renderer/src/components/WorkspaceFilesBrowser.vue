@@ -3,6 +3,9 @@ import { computed, onMounted, ref, watch } from "vue";
 import type { WorkspaceFileEntry } from "@deepwrite/contracts/renderer";
 import AppIcon from "./AppIcon.vue";
 import WorkspaceFileEditor from "./WorkspaceFileEditor.vue";
+import WorkspaceFileRow from "./WorkspaceFileRow.vue";
+import WorkspaceImagePreview from "./WorkspaceImagePreview.vue";
+import WorkspaceQuickFolders from "./WorkspaceQuickFolders.vue";
 import {
   useWorkspaceFiles,
   type WorkspaceFilesApi
@@ -12,9 +15,13 @@ import { uiMessage } from "../ui-feedback";
 /**
  * 工作区文件浏览（手机端「工作区」页的主体）。
  *
- * 交互骨架参照 RikkaHub 的工作区（列表 + 每行 ⋮ + 空态 + 新建），
- * 但**不做**它的多工作区 / proot Linux / 终端 —— DeepWrite 只有一个工作目录，
- * 那些搬过来会分裂现有的作品与资料库体系。
+ * 交互骨架参照 RikkaHub 的工作区（2026-09-15 读的真源码
+ * `WorkspaceDetailPage.kt`，AGPL-3.0 —— 只借骨架，没有搬代码）：
+ * 面包屑一行 + 两行式列表（名称 / 次要信息 + ⋮ 菜单）+ 空态图标。
+ * **不做**它的多工作区 / proot Linux / 终端 —— DeepWrite 只有一个工作目录。
+ *
+ * 职责边界：这一层只编排（列目录 / 打开 / 新建 / 重命名 / 删除 / 预览），
+ * 行、快捷目录、图片预览、文本编辑器各自是独立组件。
  *
  * ⚠️ `listing.root` 是**主进程实测的根目录**，比渲染层异步加载的那份设置值可靠：
  * 页面上方的卡片要显示哪个目录，以这个为准（`update:root` 往上抛）。
@@ -27,11 +34,15 @@ const {
   listing,
   loading,
   busy,
+  currentPath,
   editingPath,
   editingContent,
   editorOriginal,
   editorLoading,
   editorSaving,
+  previewPath,
+  previewUrl,
+  imageLoading,
   open,
   refresh,
   createEntry,
@@ -39,7 +50,9 @@ const {
   removeEntry,
   openFile,
   saveFile,
-  closeEditor
+  closeEditor,
+  openImage,
+  closeImage
 } = useWorkspaceFiles({ api: () => props.api() });
 
 const menuPath = ref<string | null>(null);
@@ -55,6 +68,9 @@ const breadcrumbs = computed(
   () => listing.value?.breadcrumbs ?? [{ name: "工作区", path: "" }]
 );
 const rootPath = computed(() => listing.value?.root ?? "");
+/** 只在工作目录根下摆「常用目录」。 */
+const atRoot = computed(() => currentPath.value === "");
+const existingNames = computed(() => entries.value.map((entry) => entry.name));
 
 onMounted(() => {
   void open("");
@@ -67,21 +83,7 @@ watch(rootPath, (root) => emit("update:root", root || null), {
 
 defineExpose({ refresh, rootPath });
 
-function sizeText(entry: WorkspaceFileEntry): string {
-  if (entry.kind === "directory") return "";
-  if (entry.size < 1024) return `${entry.size} B`;
-  if (entry.size < 1024 * 1024) return `${(entry.size / 1024).toFixed(1)} KB`;
-  return `${(entry.size / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function timeText(modifiedAt: number | null): string {
-  if (!modifiedAt) return "";
-  const date = new Date(modifiedAt);
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate()
-  )} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
+const EDITABLE_IMAGE = /\.(png|jpe?g|webp|gif|bmp|avif|heic)$/iu;
 
 function openEntry(entry: WorkspaceFileEntry): void {
   menuPath.value = null;
@@ -93,9 +95,48 @@ function openEntry(entry: WorkspaceFileEntry): void {
     void openFile(entry);
     return;
   }
-  // 二进制 / 超大文件：手机端没有「用系统应用打开」这条通道（需要新的宿主能力），
+  if (EDITABLE_IMAGE.test(entry.name)) {
+    void openImage(entry);
+    return;
+  }
+  // 其余二进制：手机端还没有「用系统应用打开」这条通道（需要新的宿主能力），
   // 与其渲染一个点了没反应的按钮，不如直说 —— 见 §13.2 的教训。
   uiMessage.info("这类文件暂不支持在应用内打开，可用 MT 管理器查看。");
+}
+
+/** 点常用目录里「未创建」的那一项：先建目录，再进去。 */
+async function openOrCreateFolder(name: string): Promise<void> {
+  if (!existingNames.value.includes(name)) {
+    const created = await createEntry(name, "directory");
+    if (!created) return;
+  }
+  void open(name);
+}
+
+async function copyPath(entry: WorkspaceFileEntry): Promise<void> {
+  menuPath.value = null;
+  const text = entry.path;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      throw new Error("clipboard unavailable");
+    }
+    uiMessage.success(`已复制：${text}`);
+  } catch {
+    // WebView 里 clipboard API 不一定可用，退到临时输入框 + execCommand。
+    const scratch = document.createElement("textarea");
+    scratch.value = text;
+    scratch.setAttribute("readonly", "true");
+    scratch.style.position = "fixed";
+    scratch.style.opacity = "0";
+    document.body.appendChild(scratch);
+    scratch.select();
+    const ok = document.execCommand?.("copy") ?? false;
+    scratch.remove();
+    if (ok) uiMessage.success(`已复制：${text}`);
+    else uiMessage.info(`路径：${text}（长按可手动复制）`);
+  }
 }
 
 function openDialog(
@@ -152,8 +193,6 @@ async function confirmDialog(): Promise<void> {
       </button>
     </nav>
 
-    <p v-if="rootPath" class="workspace-files-root">{{ rootPath }}</p>
-
     <div class="workspace-files-actions">
       <button
         class="workspace-files-action"
@@ -184,59 +223,33 @@ async function confirmDialog(): Promise<void> {
     </div>
 
     <p v-if="loading" class="workspace-files-hint">正在读取…</p>
-    <p v-else-if="!entries.length" class="workspace-files-empty">
-      <strong>这个文件夹是空的</strong>
-      <small>用上面的「新建文件 / 新建文件夹」开始整理。</small>
-    </p>
 
-    <ul v-else class="workspace-files-list">
-      <li
+    <ul v-if="entries.length" class="workspace-files-list">
+      <WorkspaceFileRow
         v-for="entry in entries"
         :key="entry.path"
-        class="workspace-files-row"
-      >
-        <button
-          class="workspace-files-entry"
-          type="button"
-          @click="openEntry(entry)"
-        >
-          <AppIcon
-            :name="entry.kind === 'directory' ? 'folder' : 'file'"
-            :size="17"
-          />
-          <span class="workspace-files-name">{{ entry.name }}</span>
-          <span class="workspace-files-meta">
-            {{ sizeText(entry) }}
-            <template v-if="timeText(entry.modifiedAt)">
-              · {{ timeText(entry.modifiedAt) }}
-            </template>
-          </span>
-        </button>
-        <div class="workspace-files-row-menu">
-          <button
-            class="workspace-files-more"
-            type="button"
-            :aria-label="`${entry.name} 的操作`"
-            :aria-expanded="menuPath === entry.path"
-            @click="menuPath = menuPath === entry.path ? null : entry.path"
-          >
-            <AppIcon name="more" :size="16" />
-          </button>
-          <div v-if="menuPath === entry.path" class="workspace-files-menu">
-            <button type="button" @click="openDialog('rename', entry)">
-              <AppIcon name="edit" :size="15" />重命名
-            </button>
-            <button
-              class="is-danger"
-              type="button"
-              @click="openDialog('delete', entry)"
-            >
-              <AppIcon name="close" :size="15" />删除
-            </button>
-          </div>
-        </div>
-      </li>
+        :entry="entry"
+        :menu-open="menuPath === entry.path"
+        @toggle-menu="menuPath = menuPath === entry.path ? null : entry.path"
+        @open="openEntry(entry)"
+        @rename="openDialog('rename', entry)"
+        @remove="openDialog('delete', entry)"
+        @copy-path="copyPath(entry)"
+      />
     </ul>
+
+    <div v-else-if="!loading" class="workspace-files-empty">
+      <AppIcon name="folder" :size="44" />
+      <strong>这个文件夹是空的</strong>
+      <small>用上面的「新建文件 / 新建文件夹」开始整理。</small>
+    </div>
+
+    <WorkspaceQuickFolders
+      v-if="atRoot"
+      :existing="existingNames"
+      @open="open"
+      @create="openOrCreateFolder"
+    />
 
     <p v-if="listing?.truncated" class="workspace-files-hint">
       条目过多，只显示了前一部分。
@@ -252,6 +265,14 @@ async function confirmDialog(): Promise<void> {
       @update:content="editingContent = $event"
       @save="saveFile()"
       @close="closeEditor()"
+    />
+
+    <WorkspaceImagePreview
+      v-if="previewPath"
+      :name="previewPath"
+      :url="previewUrl"
+      :loading="imageLoading"
+      @close="closeImage()"
     />
 
     <div v-if="dialog" class="workspace-files-dialog-backdrop">

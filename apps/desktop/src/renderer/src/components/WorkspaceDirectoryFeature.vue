@@ -58,7 +58,7 @@ watch(
 </script>
 
 <template>
-  <section class="workspace-settings-panel">
+  <section class="workspace-settings-panel workspace-directory-page">
     <header>
       <div>
         <span class="dialog-eyebrow">DeepWrite</span>

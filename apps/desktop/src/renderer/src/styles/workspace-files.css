@@ -36,6 +36,30 @@
   color: var(--text-tertiary);
 }
 
+/*
+ * 手机端把页头压扁：顶栏已经是「‹ 工作区」，页内再来一块
+ * 「DEEPWRITE / 工作区」大字就是同一个标题说了两遍，还白占半屏。
+ * 只压 workspace-directory-page，别动共用同一个面板类的模型配置页。
+ */
+:root[data-mobile="true"] .workspace-directory-page > header {
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+:root[data-mobile="true"] .workspace-directory-page > header .dialog-eyebrow {
+  display: none;
+}
+
+:root[data-mobile="true"] .workspace-directory-page > header h2 {
+  margin-top: 0;
+  font-size: 1.035714rem;
+}
+
+:root[data-mobile="true"] .workspace-directory-page .dialog-content {
+  padding: 14px 14px 18px;
+}
+
 /* ---------------- 面包屑 ---------------- */
 
 .workspace-files-breadcrumb {
@@ -77,19 +101,10 @@
   transform: rotate(-90deg);
 }
 
-.workspace-files-root {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: 0.857143rem;
-  /*
-   * 长路径要能断，但**不能 `break-all`** —— 那会在任意位置劈开单词，
-   * 真机截图里就是「…/Documents/DeepWrit」+「e」断在字母中间。
-   * `overflow-wrap: anywhere` 只在放不下时才断，且优先在 `/` 之后断。
-   */
-  overflow-wrap: anywhere;
-  word-break: normal;
-  user-select: text;
-}
+/*
+ * 根路径不再在浏览器里重复打印 —— 页面上方的卡片已经显示了同一个绝对路径
+ * （两者本来就该是同一个值，见 WorkspaceFilesBrowser 的 update:root）。
+ */
 
 /* ---------------- 操作行 ---------------- */
 
@@ -155,12 +170,12 @@
 
 .workspace-files-entry {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 42px;
+  min-height: 50px;
   padding: 6px 8px;
   border: 0;
   border-radius: 9px;
@@ -170,17 +185,26 @@
   cursor: pointer;
 }
 
+/* 两行式（借 RikkaHub）：名称一行、次要信息一行，两行都要能省略号截断。 */
+.workspace-files-entry-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .workspace-files-name {
   overflow: hidden;
   font-size: 0.964286rem;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .workspace-files-meta {
-  flex: 0 0 auto;
+  overflow: hidden;
   color: var(--text-tertiary);
   font-size: 0.785714rem;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -252,14 +276,143 @@
 
 .workspace-files-empty {
   display: grid;
-  gap: 4px;
+  gap: 6px;
+  justify-items: center;
   padding: 22px 0;
   text-align: center;
+}
+
+.workspace-files-empty > svg {
+  color: var(--text-tertiary);
 }
 
 .workspace-files-empty > strong {
   color: var(--text-secondary);
   font-weight: 600;
+}
+
+/* ---------------- 常用目录 ---------------- */
+
+/*
+ * 工作目录的约定结构（books / materials / skills / …）是**用到才创建**的，
+ * 没建过的时候这里就是空的。把结构摆出来，没建的显示「未创建」，点一下建好并进入。
+ */
+.workspace-quick-folders {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--theme-line-soft);
+}
+
+.workspace-quick-folders > h3 {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.785714rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.workspace-quick-folders > ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-quick-folders button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid var(--theme-line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 0.857143rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspace-quick-folders button:hover {
+  background: var(--surface-hover);
+}
+
+/* 还没建的：虚线 + 次要色，一眼能区分「点进去」和「创建一个」。 */
+.workspace-quick-folders button.is-missing {
+  border-style: dashed;
+  color: var(--text-secondary);
+}
+
+.workspace-quick-folder-state {
+  color: var(--text-tertiary);
+  font-size: 0.714286rem;
+}
+
+/* ---------------- 图片预览 ---------------- */
+
+.workspace-image-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 79;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: color-mix(in srgb, #000 62%, transparent);
+}
+
+.workspace-image-panel {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 560px);
+  max-height: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-raised);
+  box-shadow: 0 18px 44px color-mix(in srgb, #000 30%, transparent);
+}
+
+.workspace-image-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workspace-image-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.928571rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-image-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.workspace-image-close:hover {
+  background: var(--surface-hover);
+}
+
+.workspace-image-panel > img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--surface-muted);
 }
 
 /* ---------------- 对话框 ---------------- */

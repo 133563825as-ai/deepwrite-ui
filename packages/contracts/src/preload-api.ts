@@ -36,11 +36,13 @@ import type {
 } from "./writing-context";
 import type { WorkspaceDirectorySettings } from "./workspace-directory";
 import type {
+  WorkspaceFileBinary,
   WorkspaceFileListing,
   WorkspaceFilePathResult,
   WorkspaceFileText,
   WorkspaceFilesCreateInput,
   WorkspaceFilesListInput,
+  WorkspaceFilesReadBinaryInput,
   WorkspaceFilesReadTextInput,
   WorkspaceFilesRemoveInput,
   WorkspaceFilesRenameInput,
@@ -404,6 +406,9 @@ export interface DeepWriteApi {
   workspaceFiles: {
     list(input: WorkspaceFilesListInput): Promise<WorkspaceFileListing>;
     readText(input: WorkspaceFilesReadTextInput): Promise<WorkspaceFileText>;
+    readBinary(
+      input: WorkspaceFilesReadBinaryInput
+    ): Promise<WorkspaceFileBinary>;
     writeText(
       input: WorkspaceFilesWriteTextInput
     ): Promise<WorkspaceFilePathResult>;

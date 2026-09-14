@@ -13,9 +13,11 @@ import {
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
+  WORKSPACE_BINARY_MAX_BYTES,
   WORKSPACE_LIST_MAX_ENTRIES,
   WORKSPACE_TEXT_MAX_BYTES,
   type WorkspaceEntryKind,
+  type WorkspaceFileBinary,
   type WorkspaceFileEntry,
   type WorkspaceFileListing,
   type WorkspaceFilePathResult,
@@ -53,6 +55,32 @@ function sortEntries(entries: WorkspaceFileEntry[]): WorkspaceFileEntry[] {
     if (a.kind !== b.kind) return a.kind === "directory" ? -1 : 1;
     return a.name.localeCompare(b.name, "zh-Hans-CN");
   });
+}
+
+/**
+ * 后缀 → MIME。只列我们真的会拿去显示/预览的类型，其余一律
+ * `application/octet-stream` —— 宁可让渲染层说「不支持预览」，也不要猜错类型。
+ */
+const MIME_BY_EXTENSION: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".bmp": "image/bmp",
+  ".avif": "image/avif",
+  ".heic": "image/heic",
+  ".svg": "image/svg+xml",
+  ".pdf": "application/pdf"
+};
+
+function mimeTypeForName(name: string): string {
+  const index = name.lastIndexOf(".");
+  if (index <= 0) return "application/octet-stream";
+  return (
+    MIME_BY_EXTENSION[name.slice(index).toLowerCase()] ??
+    "application/octet-stream"
+  );
 }
 
 export class WorkspaceFilesService {
@@ -206,6 +234,40 @@ export class WorkspaceFilesService {
       path: segments,
       content: await readFile(absolute, "utf8"),
       size: info.size
+    };
+  }
+
+  /**
+   * 二进制读取 —— 当前只服务图片预览。
+   *
+   * 与 `readText` 同样的两道门：路径必须落在工作目录内（符号链接也要 realpath 核），
+   * 大小不超过 `WORKSPACE_BINARY_MAX_BYTES`。MIME 只按后缀推，推不出来给
+   * `application/octet-stream`（渲染层据此决定能不能当图片显示）。
+   */
+  async readBinary(rawPath: string): Promise<WorkspaceFileBinary> {
+    const rootReal = await this.requireRootReal();
+    const { absolute, relative: segments } = await this.resolveExisting(
+      rawPath,
+      rootReal
+    );
+    const info = await stat(absolute);
+    if (!info.isFile()) {
+      throw new WorkspaceFilesError(
+        "workspace_files.not_a_file",
+        "这个位置不是文件。"
+      );
+    }
+    if (info.size > WORKSPACE_BINARY_MAX_BYTES) {
+      throw new WorkspaceFilesError(
+        "workspace_files.too_large",
+        "文件太大，无法预览。"
+      );
+    }
+    return {
+      path: segments,
+      mimeType: mimeTypeForName(segments),
+      size: info.size,
+      base64: (await readFile(absolute)).toString("base64")
     };
   }
 
