@@ -19,6 +19,8 @@ export interface WorkspaceSystemEventRouteDependencies {
   learningImitation: {
     handleEvent(event: SystemEventEnvelope): void;
   };
+  revisionAnalysis: { handleEvent(event: SystemEventEnvelope): void };
+  shortBookAnalysis: { handleEvent(event: SystemEventEnvelope): void };
   longBookAnalysis: {
     handleEvent(event: SystemEventEnvelope): void;
   };
@@ -65,6 +67,8 @@ export function registerWorkspaceSystemEventRoutes(
     }),
     center.subscribeAll((event) => {
       dependencies.longBookAnalysis.handleEvent(event);
+      dependencies.shortBookAnalysis.handleEvent(event);
+      dependencies.revisionAnalysis.handleEvent(event);
     }),
     center.subscribeAll((event) => {
       dependencies.subagentAuthoring.handleEvent(event);

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useBookAnalysisFeatures } from "./composables/useBookAnalysisFeatures";
 import {
   computed,
   nextTick,
@@ -54,7 +55,6 @@ import { useGeneralSettingsCoordinator } from "./composables/useGeneralSettingsC
 import { useWorkspaceLifecycleCoordinator } from "./composables/useWorkspaceLifecycleCoordinator";
 import {
   useLazyLearningImitationController,
-  useLazyLongBookAnalysisController,
   useLazySubagentAuthoringController
 } from "./composables/useLazyFeatureControllers";
 import { useLazyApprovalNavigationCoordinator } from "./composables/useLazyApprovalNavigationCoordinator";
@@ -73,7 +73,7 @@ import {
 import { useSettingsFeatureCoordinator } from "./composables/useSettingsFeatureCoordinator";
 import { useShortConversationCoordinator } from "./composables/useShortConversationCoordinator";
 import { useShortWorkspaceStructureCoordinatorWithContext } from "./composables/useShortWorkspaceStructureCoordinatorWithContext";
-import { useWorkspaceResourceCoordinator } from "./composables/useWorkspaceResourceCoordinator";
+import { useWorkspaceResourceNavigation } from "./composables/useWorkspaceResourceNavigation";
 import { useWorkspaceResourceTreeCoordinator } from "./composables/useWorkspaceResourceTreeCoordinator";
 import { useWorkspaceStageNavigator } from "./composables/useWorkspaceStageNavigator";
 import { useWorkspaceDialogModuleCoordinator } from "./composables/useWorkspaceDialogModuleCoordinator";
@@ -189,10 +189,16 @@ const learningImitationFeature = useLazyLearningImitationController({
   api: () => window.deepwrite
 });
 const learningImitationRunning = learningImitationFeature.isBusy;
-const longBookAnalysisFeature = useLazyLongBookAnalysisController({
-  api: () => window.deepwrite
-});
-const longBookAnalysisRunning = longBookAnalysisFeature.isBusy;
+const {
+  longBookAnalysisFeature,
+  shortBookAnalysisFeature,
+  revisionAnalysisFeature,
+  revisionAnalysisRunning,
+  configureAnalysisModels,
+  disposeAnalysisFeatures,
+  longBookAnalysisRunning,
+  shortBookAnalysisRunning
+} = useBookAnalysisFeatures(() => window.deepwrite);
 const subagentAuthoringFeature = useLazySubagentAuthoringController({
   api: () => window.deepwrite
 });
@@ -514,6 +520,8 @@ const featureHost = useWorkspaceFeatureHostCoordinator({
   features: {
     learningImitation: learningImitationFeature,
     longBookAnalysis: longBookAnalysisFeature,
+    shortBookAnalysis: shortBookAnalysisFeature,
+    revisionAnalysis: revisionAnalysisFeature,
     subagentAuthoring: subagentAuthoringFeature
   },
   actions: {
@@ -761,7 +769,7 @@ const {
   selectResource,
   shortCatalogContextDocuments,
   showEditorDeleteSection
-} = useWorkspaceResourceCoordinator({
+} = useWorkspaceResourceNavigation({
   state: {
     selectedResourceId,
     activeCreationResourceId,
@@ -1425,10 +1433,7 @@ const {
       settings.models,
       settings.defaultModelId
     );
-    longBookAnalysisFeature.setConfiguredModels(
-      settings.models,
-      settings.defaultModelId
-    );
+    configureAnalysisModels(settings.models, settings.defaultModelId);
     applyModelSettingsToConversations(settings);
   }
 });
@@ -2327,6 +2332,8 @@ function startWorkspaceSystemEvents(): () => void {
   const removeRoutes = registerWorkspaceSystemEventRoutes(systemEventCenter, {
     learningImitation: learningImitationFeature,
     longBookAnalysis: longBookAnalysisFeature,
+    shortBookAnalysis: shortBookAnalysisFeature,
+    revisionAnalysis: revisionAnalysisFeature,
     subagentAuthoring: subagentAuthoringFeature,
     stageLongPlotDesignEditProposal,
     stageLongWorldbuildingEditProposal,
@@ -2458,7 +2465,7 @@ const workspaceLifecycle = useWorkspaceLifecycleCoordinator({
         flush: conversationPersistenceEnabled
       }),
     () => learningImitationFeature.dispose(),
-    () => longBookAnalysisFeature.dispose(),
+    () => disposeAnalysisFeatures(),
     () => subagentAuthoringFeature.dispose()
   ],
   onError(error, operation) {
@@ -2538,6 +2545,8 @@ onBeforeUnmount(() => {
       :selected-id="selectedResourceId"
       :imitation-running="learningImitationRunning"
       :long-book-analysis-running="longBookAnalysisRunning"
+      :revision-analysis-running="revisionAnalysisRunning"
+      :short-book-analysis-running="shortBookAnalysisRunning"
       :library-entry-clipboard-domain="libraryEntryClipboardDomain"
       :active-primary-feature="
         chatAssistant.active.value ? 'chat-assistant' : activePrimaryFeature

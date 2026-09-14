@@ -7,6 +7,13 @@ interface CachedConversationAgent {
 }
 
 export function conversationAgentKey(input: AgentRunInput): string {
+  if (
+    input.shortBookAnalysisProfile &&
+    input.workspaceContext?.shortBookAnalysis
+  )
+    return `${input.sessionId}:short-book-analysis:${input.workspaceContext.shortBookAnalysis.jobId}`;
+  if (input.workspaceContext?.revisionAnalysis)
+    return `${input.sessionId}:revision-analysis:${input.workspaceContext.revisionAnalysis.jobId}`;
   const libraryWorkspace = input.workspaceContext?.libraryWorkspace;
   const longWorkspace = input.workspaceContext?.longWorkspace;
   const subagentAuthoring = input.workspaceContext?.subagentAuthoring;

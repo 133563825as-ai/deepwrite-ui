@@ -13,6 +13,10 @@ export * from "./library-agent";
 export * from "./long-agent-settings";
 export * from "./long-agent-team";
 export * from "./long-book-analysis";
+export * from "./short-book-analysis";
+export * from "./short-book-analysis-commands";
+export * from "./short-book-analysis-events";
+export * from "./short-book-analysis-budget";
 export * from "./style-comparison";
 export { DEFAULT_STYLE_COMPARISON_METHOD } from "./style-comparison-method";
 export * from "./long-ledger";
@@ -60,3 +64,9 @@ export * from "./device-sync-commands";
 export * from "./conversation-history";
 
 export * from "./conversation-export";
+
+export * from "./revision-analysis";
+export * from "./revision-analysis-events";
+
+export * from "./revision-analysis-defaults";
+export * from "./revision-analysis-budget";

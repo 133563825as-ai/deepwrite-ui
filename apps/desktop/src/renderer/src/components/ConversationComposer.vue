@@ -29,6 +29,7 @@ import ComposerContextCard from "./ComposerContextCard.vue";
 import ContextWindowIndicator from "./ContextWindowIndicator.vue";
 import ConversationModelConfigSelect from "./ConversationModelConfigSelect.vue";
 import PopupSelect from "./PopupSelect.vue";
+import ComposerMoreSettings from "./ComposerMoreSettings.vue";
 
 const settingsStore = useSettingsStore();
 
@@ -361,33 +362,35 @@ function handleApprovalChange(value: string | number): void {
                 @select-temperature="emit('selectTemperature', $event)"
                 @toggle-web-search="emit('toggleWebSearch', $event)"
               />
-              <ContextWindowIndicator
-                v-if="settingsStore.generalSettings.showContextUsage"
-                :messages="messages"
-                :model="selectedModel"
-              />
             </div>
             <div class="composer-actions">
-              <AgentTeamModeSelect
-                v-if="agentWorkspaceType && agentId"
-                :model-value="agentTeamMode"
-                :workspace-type="agentWorkspaceType"
-                :parent-agent-id="agentId"
-                @update:model-value="emit('selectAgentTeamMode', $event)"
-              />
-              <PopupSelect
-                :model-value="approvalMode"
-                :options="approvalOptions"
-                accessible-label="选择正文修改权限"
-                variant="compact"
-                align="end"
-                :menu-min-width="300"
-                @update:model-value="handleApprovalChange"
-              >
-                <template #prefix
-                  ><AppIcon :name="approvalModeIcon" :size="14"
-                /></template>
-              </PopupSelect>
+              <ComposerMoreSettings>
+                <ContextWindowIndicator
+                  v-if="settingsStore.generalSettings.showContextUsage"
+                  :messages="messages"
+                  :model="selectedModel"
+                />
+                <AgentTeamModeSelect
+                  v-if="agentWorkspaceType && agentId"
+                  :model-value="agentTeamMode"
+                  :workspace-type="agentWorkspaceType"
+                  :parent-agent-id="agentId"
+                  @update:model-value="emit('selectAgentTeamMode', $event)"
+                />
+                <PopupSelect
+                  :model-value="approvalMode"
+                  :options="approvalOptions"
+                  accessible-label="选择正文修改权限"
+                  variant="compact"
+                  align="end"
+                  :menu-min-width="300"
+                  @update:model-value="handleApprovalChange"
+                >
+                  <template #prefix
+                    ><AppIcon :name="approvalModeIcon" :size="14"
+                  /></template>
+                </PopupSelect>
+              </ComposerMoreSettings>
               <button
                 class="round-tool-button"
                 type="button"

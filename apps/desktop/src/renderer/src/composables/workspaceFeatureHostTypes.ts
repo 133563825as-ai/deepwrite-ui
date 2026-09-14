@@ -46,6 +46,16 @@ export interface WorkspaceFeatureHostCoordinatorOptions {
       controller: LazyLearningImitationController["controller"];
       ensureLoaded(): Promise<unknown>;
     };
+    revisionAnalysis: {
+      controller: ReturnType<
+        typeof import("./useLazyRevisionAnalysis").useLazyRevisionAnalysis
+      >["controller"];
+      ensureLoaded(): Promise<unknown>;
+    };
+    shortBookAnalysis: {
+      controller: import("./useLazyShortBookAnalysis").LazyShortBookAnalysisController["controller"];
+      ensureLoaded(): Promise<unknown>;
+    };
     longBookAnalysis: {
       controller: LazyLongBookAnalysisController["controller"];
       ensureLoaded(): Promise<unknown>;

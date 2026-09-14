@@ -1,3 +1,6 @@
+import type { ModelUsageModule } from "@deepwrite/contracts";
+import { createBookAnalysisServices } from "./extras/book-analysis-services";
+import { usageModuleForPrompt } from "./usage-module";
 import {
   handleConversationExportCommands,
   disposeConversationExports
@@ -124,7 +127,6 @@ import {
   type GeneralSettings,
   type ChatAssistantRuntimeContext,
   type ModelUsageModelSnapshot,
-  type ModelUsageModule,
   type SessionPromptCommandPayload,
   type SystemEventEnvelope,
   type UpdateState,
@@ -188,8 +190,6 @@ import { configureBootstrapEnvironment } from "./bootstrap-environment";
 import { handleModelCommands } from "./ipc/model-commands";
 import { handleAppearanceCommands } from "./ipc/appearance-commands";
 import { handleWorkspaceFileCommands } from "./ipc/workspace-file-commands";
-import { LongBookAnalysisConfigStore } from "./extras/long-book-analysis/config-store";
-import { handleLongBookAnalysisCommands } from "./extras/long-book-analysis/commands";
 import {
   installAppearanceFontProtocolHandler,
   registerAppearanceFontScheme
@@ -223,7 +223,7 @@ let generalSettingsStore: GeneralSettingsStore | undefined;
 let chatAssistantProjectConfigStore:
   ChatAssistantProjectConfigStore | undefined;
 let learningImitationConfigStore: LearningImitationConfigStore | undefined;
-let longBookAnalysisConfigStore: LongBookAnalysisConfigStore | undefined;
+let bookAnalysisServices: ReturnType<typeof createBookAnalysisServices>;
 let libraryAgentConfigStore: LibraryAgentConfigStore | undefined;
 let longAgentConfigStore: LongAgentConfigStore | undefined;
 let cachedAppearanceSettings: AppearanceSettings =
@@ -930,26 +930,6 @@ function createUsageModelSnapshot(
   };
 }
 
-function usageModuleForPrompt(
-  payload: SessionPromptCommandPayload
-): ModelUsageModule {
-  if (payload.mode === "chat-assistant") return "assistant-chat";
-  const context = payload.workspaceContext;
-  if (!context) return "unknown";
-  if (context.shortWorkspace) return "short-writing";
-  if (context.scriptWorkspace) return "script-writing";
-  if (context.longWorkspace) return "long-writing";
-  if (context.libraryWorkspace) {
-    return context.libraryWorkspace.domain === "skill"
-      ? "skill-library"
-      : "material-library";
-  }
-  if (context.learningImitation) return "learning-imitation";
-  if (context.longBookAnalysis) return "long-book-analysis";
-  if (context.subagentAuthoring) return "subagent-authoring";
-  return "unknown";
-}
-
 function createUsageRunContext(
   payload: SessionPromptCommandPayload,
   runtimeConfig: AgentProviderRuntimeConfig | undefined,
@@ -1034,13 +1014,6 @@ function requireLearningImitationConfigStore(): LearningImitationConfigStore {
     throw new Error("学习仿写设置存储尚未初始化。");
   }
   return learningImitationConfigStore;
-}
-
-function requireLongBookAnalysisConfigStore(): LongBookAnalysisConfigStore {
-  if (!longBookAnalysisConfigStore) {
-    throw new Error("长篇拆书分析设置存储尚未初始化。");
-  }
-  return longBookAnalysisConfigStore;
 }
 
 function requireWorkspaceDirectoryStore(): WorkspaceDirectoryStore {
@@ -1449,20 +1422,17 @@ function registerIpc(): void {
         return workspaceFileCommandResult;
       }
 
-      const longBookAnalysisCommandResult =
-        await handleLongBookAnalysisCommands(
-          {
-            dialog,
-            getMainWindow: requireMainWindow,
-            configStore: requireLongBookAnalysisConfigStore,
-            getWorkspaceDirectory: async () =>
-              (await requireWorkspaceDirectoryStore().list()).path
-          },
-          command
-        );
-      if (longBookAnalysisCommandResult) {
-        return longBookAnalysisCommandResult;
-      }
+      const analysisResult = await bookAnalysisServices.handle(
+        {
+          dialog,
+          getMainWindow: requireMainWindow,
+          getWorkspaceDirectory: async () =>
+            (await requireWorkspaceDirectoryStore().list()).path,
+          core: (command) => supervisor.requestCommand("core", command, 60_000)
+        },
+        command
+      );
+      if (analysisResult) return analysisResult;
 
       if (command.type === "generalSettings.list") {
         try {
@@ -2933,8 +2903,6 @@ function registerIpc(): void {
             command.payload.workspaceContext?.libraryWorkspace;
           const learningImitation =
             command.payload.workspaceContext?.learningImitation;
-          const longBookAnalysis =
-            command.payload.workspaceContext?.longBookAnalysis;
           const creativeWorkspace = shortWorkspace ?? scriptWorkspace;
           const creativeWorkspaceType = scriptWorkspace ? "script" : "short";
           const agentProfile = creativeWorkspace
@@ -2982,11 +2950,10 @@ function registerIpc(): void {
                 learningImitation.stageId
               )
             : undefined;
-          const longBookAnalysisProfile = longBookAnalysis
-            ? await requireLongBookAnalysisConfigStore().resolve(
-                longBookAnalysis.presetId
-              )
-            : undefined;
+          const analysisProfiles = await bookAnalysisServices.resolve(
+            command.payload.workspaceContext,
+            runtimeConfig
+          );
           const { thinkingLevel, temperature } = resolveModelRunSettings(
             runtimeConfig,
             {
@@ -3050,7 +3017,7 @@ function registerIpc(): void {
                 ...(learningImitationProfile
                   ? { learningImitationProfile }
                   : {}),
-                ...(longBookAnalysisProfile ? { longBookAnalysisProfile } : {})
+                ...analysisProfiles
               },
               { id: command.id, context: command.context }
             )
@@ -3225,7 +3192,7 @@ if (!hasSingleInstanceLock) {
     learningImitationConfigStore = new LearningImitationConfigStore(
       userDataPath
     );
-    longBookAnalysisConfigStore = new LongBookAnalysisConfigStore(userDataPath);
+    bookAnalysisServices = createBookAnalysisServices(userDataPath);
     workspaceDirectoryStore = new WorkspaceDirectoryStore(userDataPath);
     appearanceService = new AppearanceService(userDataPath);
     installAppearanceFontProtocolHandler(appearanceService);

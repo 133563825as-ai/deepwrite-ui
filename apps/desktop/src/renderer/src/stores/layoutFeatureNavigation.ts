@@ -6,6 +6,8 @@ export type WorkspaceMainView =
   | "models"
   | "imitation"
   | "long-book-analysis"
+  | "revision-analysis"
+  | "short-book-analysis"
   | "style-comparison"
   | "agent-team"
   | "marketplace"
@@ -18,6 +20,8 @@ export type PrimaryFeature =
   | "models"
   | "imitation"
   | "long-book-analysis"
+  | "revision-analysis"
+  | "short-book-analysis"
   | "style-comparison"
   | "chat-assistant"
   | "agent-teams"
@@ -41,6 +45,8 @@ export function primaryFeatureForView(
     case "models":
     case "imitation":
     case "long-book-analysis":
+    case "revision-analysis":
+    case "short-book-analysis":
     case "style-comparison":
       return view;
     default:
@@ -61,6 +67,8 @@ const WORKSPACE_FEATURE_TITLES: Record<
   directory: "工作区",
   models: "自定义模型配置",
   imitation: "短篇学习仿写",
+  "revision-analysis": "修改分析",
+  "short-book-analysis": "短篇拆书分析",
   "long-book-analysis": "长篇拆书分析",
   "style-comparison": "文风比对",
   "agent-team": "智能体团队",

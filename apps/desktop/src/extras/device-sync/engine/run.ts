@@ -2,7 +2,6 @@ import {
   checkedSyncItem,
   sameSyncContent,
   syncKey,
-  syncDependencies,
   syncDependencyOrder,
   SyncItemValidationError,
   type SyncAdoption,
@@ -14,12 +13,13 @@ import {
   type SyncMetadata
 } from "@deepwrite/contracts";
 import { connectedSyncRemote, loadSyncMetadata } from "./connection";
-import { readSyncCandidates } from "./candidates";
+import { indexSyncCandidates, readSyncCandidates } from "./candidates";
 import { planSyncItem } from "./plan-item";
 import { transferSyncItem } from "./transfer-item";
 import { publishSync } from "./persistence";
 import { directionConflict, syncItemDirection } from "./direction";
 import { adoptSyncItem } from "./adoption";
+import { syncDependencyIssue } from "./dependency-guard";
 
 export interface SyncRunState {
   progress: SyncProgress;
@@ -51,7 +51,7 @@ export async function runSync(
     title: "检查网盘修改"
   };
   const remote = await connectedSyncRemote(options, config, signal);
-  const devices = await remote.devices(config.spaceId);
+  const devices = await remote.devices(config.spaceId, metadata.devices);
   metadata = {
     ...metadata,
     devices: devices,
@@ -61,15 +61,7 @@ export async function runSync(
   remote.setFileProgress((filesCompleted, filesTotal) => {
     state.progress = { ...state.progress, filesCompleted, filesTotal };
   });
-  const loaded = await readSyncCandidates(
-    remote,
-    devices,
-    config.spaceId,
-    config.excludedKeys,
-    signal
-  );
-  const candidates = loaded.candidates;
-  state.issues.push(...loaded.issues);
+  const candidates = indexSyncCandidates(devices, config.excludedKeys);
   const selected = adoption ? new Set(adoption.keys) : null;
   if (selected)
     state.issues.push(
@@ -98,13 +90,14 @@ export async function runSync(
     ])
   ]
     .filter((key) => !config.excludedKeys.includes(key))
+    // Create dependencies first; delete referring works/groups before libraries.
     .sort(
       (a, b) =>
-        (candidates.get(a)?.some((entry) => !entry.item)
-          ? 3
+        (candidates.get(a)?.some((entry) => !entry.revision.files)
+          ? 5 - syncDependencyOrder(a)
           : syncDependencyOrder(a)) -
-        (candidates.get(b)?.some((entry) => !entry.item)
-          ? 3
+        (candidates.get(b)?.some((entry) => !entry.revision.files)
+          ? 5 - syncDependencyOrder(b)
           : syncDependencyOrder(b))
     );
   if (!metadata.firstSyncConfirmed && !confirmFirst) {
@@ -169,11 +162,27 @@ export async function runSync(
       continue;
     }
     if (selected && !selected.has(key)) continue;
+    if (!adoption && baseline) remote.reuseItems([baseline.item]);
+    state.progress = {
+      phase: "transferring",
+      completed,
+      total,
+      title: `读取变化：${initial?.title ?? candidates.get(key)?.[0]?.revision.title ?? key}`
+    };
+    const loaded = await readSyncCandidates(
+      remote,
+      candidates.get(key) ?? [],
+      config.spaceId,
+      key,
+      signal
+    );
+    state.issues.push(...loaded.issues);
+    if (loaded.issues.length) continue;
     let plan = planSyncItem({
       key,
       local: initial,
       baseline: metadata.baselines[key],
-      candidates: candidates.get(key) ?? [],
+      candidates: loaded.candidates,
       ancestors: metadata.ancestors[key] ?? [],
       resolutions,
       hash: options.runtime.hash
@@ -206,51 +215,19 @@ export async function runSync(
         plan.candidates[0]?.revision ??
         metadata.baselines[key]?.revision;
       if (!identity) continue;
-      if (plan.item) {
+      if (plan.item)
         await options.workspace.validate(checkedSyncItem(plan.item));
-        const missing = syncDependencies(plan.item).filter((dependency) =>
-          accepted[dependency]
-            ? !accepted[dependency]?.item
-            : !local.has(dependency)
-        );
-        if (missing.length) {
-          state.issues.push({
-            key,
-            title: plan.item.title,
-            token: "",
-            reason: "unsupported",
-            message: "绑定的资料尚未就绪，请加入对应资料库并处理其同步事项。",
-            paths: missing,
-            local: initial,
-            versions: []
-          });
-          continue;
-        }
-      }
-      if (!plan.item) {
-        const live = new Map(local);
-        for (const [id, value] of Object.entries(accepted)) {
-          if (value.item) live.set(id, value.item);
-          else live.delete(id);
-        }
-        if (
-          [...live.values()].some(
-            (item) =>
-              syncKey(item) !== key && syncDependencies(item).includes(key)
-          )
-        ) {
-          state.issues.push({
-            key,
-            title: identity.title,
-            token: "",
-            reason: "unsupported",
-            message: "仍有作品绑定此资料，请先取消绑定或保留资料后再同步删除。",
-            paths: [],
-            local: initial,
-            versions: []
-          });
-          continue;
-        }
+      const dependencyIssue = syncDependencyIssue({
+        key,
+        title: identity.title,
+        initial,
+        next: plan.item,
+        local,
+        accepted
+      });
+      if (dependencyIssue) {
+        state.issues.push(dependencyIssue);
+        continue;
       }
       state.progress = {
         phase: "transferring",

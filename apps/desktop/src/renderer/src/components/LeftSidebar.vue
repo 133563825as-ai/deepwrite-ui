@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import type {
   BookResourceDialogMode,
   CatalogResourceNodeActionPayload,
   CatalogLibraryEntryDragPayload,
   DialogMode,
-  IconName,
   LongBookResourceNodeActionPayload,
   LongTreeItemAction,
   ResourceSectionActionPayload,
   ResourceTreeNode,
   ResourceTreeSection
 } from "../types/workspace";
+import { moreFeatures } from "./sidebarMoreFeatures";
 import AppIcon from "./AppIcon.vue";
 import SidebarResourceList from "./SidebarResourceList.vue";
 import SidebarProfileMenu from "./SidebarProfileMenu.vue";
@@ -26,6 +26,8 @@ const props = defineProps<{
   selectedId: string;
   imitationRunning?: boolean;
   longBookAnalysisRunning?: boolean;
+  shortBookAnalysisRunning?: boolean;
+  revisionAnalysisRunning?: boolean;
   libraryEntryClipboardDomain?: "skill" | "material" | undefined;
   activePrimaryFeature:
     | PrimaryFeatureId
@@ -108,63 +110,20 @@ const navItems: Array<{
 ];
 
 const moreExpanded = ref(mobileShell.isMobile);
-const moreFeatures: Array<{
-  id:
-    | "imitation"
-    | "long-book-analysis"
-    | "style-comparison"
-    | "skill-marketplace"
-    | "cloud-backup"
-    | "device-sync"
-    | "zhuque-detection"
-    | "runtime";
-  label: string;
-  description: string;
-  icon: IconName;
-}> = [
-  {
-    id: "imitation",
-    label: "短篇学习仿写",
-    description: "学习范文并生成同类短篇",
-    icon: "wand"
-  },
-  {
-    id: "long-book-analysis",
-    label: "长篇拆书分析",
-    description: "分批提炼长篇剧情、人物与文风",
-    icon: "book"
-  },
-  {
-    id: "style-comparison",
-    label: "文风比对",
-    description: "比较两份文本的文风与相似度",
-    icon: "file"
-  },
-  {
-    id: "skill-marketplace",
-    label: "技能广场",
-    description: "发现、安装与发布写作技能",
-    icon: "globe"
-  },
-  {
-    id: "device-sync",
-    label: "双端同步",
-    description: "使用自己的网盘接续写作",
-    icon: "archive"
-  },
-  {
-    id: "cloud-backup",
-    label: "云端备份",
-    description: "备份创作空间和资料",
-    icon: "archive"
-  },
-  {
-    id: "zhuque-detection",
-    label: "朱雀检测",
-    description: "检测文本中的 AI 生成内容",
-    icon: "globe"
-  }
-];
+
+/*
+ * 「运行设置」在手机端不显示。
+ *
+ * 它在抽屉里的去处就是「设置」页（`activateMoreFeature` 的兜底分支），
+ * 用户原话：「运行设置和设置有点重复了」。原先我们是从清单里删掉这一项的，
+ * 但清单在合并上游 1.5.1 时被挪进了 `sidebarMoreFeatures.ts` —— 删清单会把
+ * 上游的改动一起抹掉，所以改成**按端过滤**，桌面端保持上游原样。
+ */
+const visibleMoreFeatures = computed(() =>
+  mobileShell.isMobile
+    ? moreFeatures.filter((feature) => feature.id !== "runtime")
+    : moreFeatures
+);
 
 /*
  * 上面这些功能项两端都显示。
@@ -182,6 +141,8 @@ function activateMoreFeature(
   id:
     | "imitation"
     | "long-book-analysis"
+    | "revision-analysis"
+    | "short-book-analysis"
     | "style-comparison"
     | "skill-marketplace"
     | "cloud-backup"
@@ -189,12 +150,20 @@ function activateMoreFeature(
     | "zhuque-detection"
     | "runtime"
 ): void {
+  if (id === "revision-analysis") {
+    emit("openDialog", "revision-analysis");
+    return;
+  }
   if (id === "style-comparison") {
     emit("openDialog", "style-comparison");
     return;
   }
   if (id === "imitation") {
     emit("openDialog", "imitation");
+    return;
+  }
+  if (id === "short-book-analysis") {
+    emit("openDialog", "short-book-analysis");
     return;
   }
   if (id === "long-book-analysis") {
@@ -325,7 +294,7 @@ function activateNav(id: "create-book" | PrimaryFeatureId): void {
           class="more-feature-list"
         >
           <button
-            v-for="feature in moreFeatures"
+            v-for="feature in visibleMoreFeatures"
             :key="feature.id"
             class="more-feature-row"
             :class="{ 'is-active': feature.id === props.activePrimaryFeature }"
@@ -346,6 +315,10 @@ function activateNav(id: "create-book" | PrimaryFeatureId): void {
             </span>
             <span
               v-if="
+                (feature.id === 'revision-analysis' &&
+                  props.revisionAnalysisRunning) ||
+                (feature.id === 'short-book-analysis' &&
+                  props.shortBookAnalysisRunning) ||
                 (feature.id === 'imitation' && props.imitationRunning) ||
                 (feature.id === 'long-book-analysis' &&
                   props.longBookAnalysisRunning)
@@ -354,7 +327,11 @@ function activateNav(id: "create-book" | PrimaryFeatureId): void {
               :title="
                 feature.id === 'imitation'
                   ? '学习仿写正在后台运行'
-                  : '长篇拆书正在后台运行'
+                  : feature.id === 'revision-analysis'
+                    ? '修改分析正在后台运行'
+                    : feature.id === 'short-book-analysis'
+                      ? '短篇拆书正在后台运行'
+                      : '长篇拆书正在后台运行'
               "
             >
               <i aria-hidden="true" />后台中

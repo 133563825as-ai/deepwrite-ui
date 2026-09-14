@@ -13,3 +13,6 @@ coverage/
 .DS_Store
 .idea/
 .vscode/
+
+# 手机/Web 版构建产物（dwbuild 每轮重建，不入库）
+/apps/desktop/out-web/

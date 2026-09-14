@@ -58,6 +58,7 @@ export interface AgentRunInput {
   libraryManagement?: LibraryManagementRuntimeContext;
   libraryManagementCommandExecutor?: LibraryManagementCommandExecutor;
   learningImitationProfile?: LearningImitationAgentProfile;
+  shortBookAnalysisProfile?: import("@deepwrite/contracts").ShortBookAnalysisProfile;
   longBookAnalysisProfile?: LongBookAnalysisAgentProfile;
   workspaceContext?: WorkspaceRuntimeContext;
   /**
@@ -81,6 +82,8 @@ export type AgentUserInputRequester = (
 ) => Promise<SessionUserInputResponsePayload>;
 
 export type AgentRuntimeEvent =
+  | import("./revision-analysis").RevisionAnalysisRuntimeEvent
+  | import("./short-book-analysis").ShortAnalysisRuntimeEvent
   | {
       type: "agent.evaluation_snapshot";
       runId: string;

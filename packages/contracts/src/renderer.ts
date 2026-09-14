@@ -20,6 +20,14 @@ export type * from "./library-agent";
 export type * from "./long-agent-settings";
 export type * from "./long-agent-team";
 export type * from "./long-book-analysis";
+export type * from "./short-book-analysis";
+export type * from "./short-book-analysis-events";
+export {
+  ShortBookAnalysisPresetSchema,
+  ShortBookAnalysisSettingsInputSchema,
+  ShortBookAnalysisRuntimeContextSchema
+} from "./short-book-analysis";
+export * from "./short-book-analysis-budget";
 export type * from "./style-comparison";
 export type * from "./workspace-files";
 export {
@@ -370,3 +378,8 @@ export {
 export { conversationHistoryJsonBytes } from "./conversation-history-json-size";
 
 export type * from "./conversation-export";
+
+export * from "./revision-analysis";
+
+export * from "./revision-analysis-defaults";
+export * from "./revision-analysis-budget";

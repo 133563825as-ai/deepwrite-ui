@@ -1,3 +1,5 @@
+import { revisionAnalysisUserPrompt } from "./revision-analysis";
+import { shortAnalysisUserPrompt } from "./short-book-analysis";
 import { materialCatalogEntries } from "./material-query-runtime";
 import { buildMaterialCatalogPrompt } from "./material-catalog";
 import {
@@ -27,6 +29,10 @@ export {
 
 /** @internal Exported for prompt-boundary regression tests. */
 export function buildRuntimeUserPrompt(input: AgentRunInput): string {
+  if (input.workspaceContext?.revisionAnalysis)
+    return revisionAnalysisUserPrompt(input.workspaceContext.revisionAnalysis);
+  if (input.workspaceContext?.shortBookAnalysis)
+    return shortAnalysisUserPrompt(input.workspaceContext.shortBookAnalysis);
   if (input.workspaceContext?.styleComparison) {
     return buildStyleComparisonUserPrompt(
       input.workspaceContext.styleComparison
