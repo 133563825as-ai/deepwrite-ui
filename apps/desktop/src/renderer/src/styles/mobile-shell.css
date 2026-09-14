@@ -1,0 +1,572 @@
+/*
+ * 手机端外壳样式。
+ *
+ * 所有规则都挂在 :root[data-mobile="true"] 下 —— 由 stores/mobileShellStore.ts
+ * 写 <html> 的 data 属性驱动。刻意不用裸 @media：
+ * 这套规则要和桌面三栏共存，靠媒体查询会和桌面规则抢同一个属性，
+ * 之前那版注入式适配就是靠 !important 硬掰，桌面样式一改就崩。
+ */
+
+:root {
+  --mobile-app-bar-height: 56px;
+}
+
+/* 桌面壳给 body 设了 min-width:1000px（"窗口至少这么宽"）。
+   手机上必须去掉，否则里面所有百分比都按错基准算。 */
+:root[data-mobile="true"] body {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---------------- 顶栏 ---------------- */
+
+.mobile-app-bar {
+  display: none;
+}
+
+:root[data-mobile="true"] .mobile-app-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--mobile-app-bar-height);
+  padding: 0 6px;
+  border-bottom: 1px solid var(--theme-line-soft);
+  background: var(--surface-main);
+}
+
+.mobile-app-bar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.mobile-app-bar-button:active {
+  background: var(--surface-hover);
+}
+
+.mobile-app-bar-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mobile-app-bar-tabs {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.mobile-app-bar-tab {
+  position: relative;
+  height: 100%;
+  padding: 0 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: transparent;
+}
+
+.mobile-app-bar-tab.is-active {
+  color: var(--text-primary);
+}
+
+/* 官方：选中项的蓝色下划线压在下边框上 */
+.mobile-app-bar-tab.is-active::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  bottom: 0;
+  left: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* ---------------- 抽屉遮罩 ---------------- */
+
+/*
+ * 层级：抽屉(72) > 遮罩(71) > 顶栏(70)。
+ *
+ * 遮罩必须**盖住顶栏**，否则抽屉拉开后顶栏那一条还亮着、只在右边留一截，
+ * 看着像抽屉被顶栏压住（用户原话：「侧边栏打开，怎么是在上面的聊天下面」）。
+ * 顶栏被遮罩盖住之后，关闭抽屉的入口就落在抽屉自己的标题行里
+ * （见 LeftSidebar 的 brand row）。
+ */
+.mobile-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 71;
+  background: color-mix(in srgb, #000 32%, transparent);
+}
+
+/* ---------------- 单栏布局 ---------------- */
+
+:root[data-mobile="true"] .desktop-shell {
+  display: block;
+  width: 100vw;
+  height: 100dvh;
+  padding-top: var(--mobile-app-bar-height);
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: none;
+}
+
+:root[data-mobile="true"] .desktop-shell > .conversation-pane,
+:root[data-mobile="true"] .desktop-shell > .editor-pane,
+:root[data-mobile="true"] .desktop-shell > .long-agent-column {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border-left: 0;
+}
+
+/* 一次只显示一栏：顶栏两个 tab 就是切换开关 */
+:root[data-mobile="true"][data-mobile-pane="chat"]
+  .desktop-shell
+  > .editor-pane,
+:root[data-mobile="true"][data-mobile-pane="chat"]
+  .desktop-shell
+  > .long-workspace-editor {
+  display: none;
+}
+
+:root[data-mobile="true"][data-mobile-pane="writing"]
+  .desktop-shell
+  > .conversation-pane,
+:root[data-mobile="true"][data-mobile-pane="writing"]
+  .desktop-shell
+  > .long-agent-column {
+  display: none;
+}
+
+/* 分栏拖拽手柄在手机上没意义 */
+:root[data-mobile="true"] .pane-resizer {
+  display: none;
+}
+
+/* ---------------- 抽屉内容对齐官方 ---------------- */
+
+/* 官方手机端抽屉里没有这几项：模型配置进了「设置」，智能体团队进了「更多功能」，
+   聊天就是顶栏那个 tab。「工作目录」官方没有，但那是查看工作区的入口，保留。 */
+:root[data-mobile="true"] .left-sidebar .nav-row[data-nav-id="models"],
+:root[data-mobile="true"] .left-sidebar .nav-row[data-nav-id="agent-teams"],
+:root[data-mobile="true"] .left-sidebar .nav-row[data-nav-id="chat-assistant"] {
+  display: none;
+}
+
+/* Ctrl+N 这类键盘快捷键提示在手机上没意义 */
+:root[data-mobile="true"] .left-sidebar kbd {
+  display: none;
+}
+
+/* ---------------- 横向撑宽：必须是显式列宽 ---------------- */
+
+/*
+ * 探针实测（360 视口）：conversation-scroll-shell / composer-wrap 宽 408，被切掉 48。
+ * 链条是：
+ *   .conversation-pane 是 display:grid 但只写了 grid-template-rows，
+ *   隐式列按 **max-content** 定宽 → 被 .composer-wrap 的 max-content
+ *   （底栏那行 nowrap 的上下文条 372 + padding 36 = 408）撑开 → overflow:hidden 切掉。
+ * 所以这里必须显式给列宽，并让子项可收缩；再让上下文条允许换行。
+ * 这三条老注入版里有，我重写时漏了 —— 探针量出来才知道，不能靠看截图猜。
+ */
+:root[data-mobile="true"] .conversation-pane,
+:root[data-mobile="true"] .editor-pane,
+:root[data-mobile="true"] .long-agent-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:root[data-mobile="true"] .conversation-pane > *,
+:root[data-mobile="true"] .editor-pane > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:root[data-mobile="true"] .composer-context-bar {
+  flex-wrap: wrap;
+  gap: 10px;
+  row-gap: 4px;
+  /* 书籍靠左、阶段靠右，两端固定（官方就是这样）。桌面版是 gap: 28px 挨在一起，
+     手机上两个标签挤在一头看着像没做完。 */
+  justify-content: space-between;
+}
+
+:root[data-mobile="true"] .composer-context-item {
+  min-width: 0;
+  flex: 0 1 auto;
+  white-space: normal;
+}
+
+/* ---------------- 侧栏 → 抽屉 ---------------- */
+
+:root[data-mobile="true"] .desktop-shell > .left-sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  /* 72 > 遮罩(71) > 顶栏(70)：抽屉要盖住顶栏，整条从屏幕顶端开始，
+     不能只到顶栏下沿 —— 那正是「侧边栏在聊天下面」的观感来源。 */
+  z-index: 72;
+  width: 78vw;
+  max-width: 400px;
+  padding-top: env(safe-area-inset-top, 0px);
+  border-right: 1px solid var(--theme-line);
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 22%, transparent);
+  transform: translateX(-102%);
+  transition: transform 200ms ease;
+}
+
+:root[data-mobile="true"][data-mobile-drawer="open"]
+  .desktop-shell
+  > .left-sidebar {
+  transform: none;
+}
+
+/* 抽屉里那个「收起左侧栏」属于桌面语义（收起 ≡ 卸载），手机上用遮罩/✕ 关闭。
+   ⚠️ 必须排除 .sidebar-drawer-close：那是抽屉自己在手机上用的关闭按钮。 */
+:root[data-mobile="true"]
+  .desktop-shell
+  > .left-sidebar
+  .sidebar-brand-row
+  .icon-button:not(.sidebar-drawer-close) {
+  display: none;
+}
+
+/*
+ * 区块的「+」菜单默认向下弹（.section-action-menu { top: calc(100% + 4px) }），
+ * 但抽屉里最靠下的那些区块下面已经没有空间了，菜单会被滚动容器裁掉 ——
+ * 用户原话：「最下面的功能打开之后，看不见了」。手机上让最后两个区块改成朝上弹。
+ */
+:root[data-mobile="true"]
+  .left-sidebar
+  .resource-section:nth-last-child(-n + 2)
+  .section-action-menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+/* ---------------- 会话栏：header 整条取消 ---------------- */
+
+/*
+ * 「历史对话 / 新建对话」已经在 AgentConversation 里 Teleport 到顶栏右侧
+ * （见 MobileAppBar 的 #mobile-app-bar-actions），所以这一条 header 在手机上
+ * 整体不要了 —— 官方手机端就只有顶栏那一条。
+ * 桌面端 Teleport 被禁用，这条规则也不生效（data-mobile 不存在）。
+ */
+:root[data-mobile="true"] .conversation-pane > .conversation-header {
+  display: none;
+}
+
+:root[data-mobile="true"] .conversation-pane {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+/* 顶栏右侧动作槽：控件仍是原组件，只是换了落脚点 */
+.mobile-app-bar-actions {
+  display: none;
+}
+
+:root[data-mobile="true"] .mobile-app-bar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  /* 两个 tab 改成绝对定位居中后，这里要自己把右侧动作槽顶到最右。 */
+  margin-left: auto;
+}
+
+/*
+ * 「聊天 / 写作」必须相对**屏幕**居中，而不是相对「☰ 和右侧动作槽之间」居中 ——
+ * 左边只有一个 ☰（44px）、右边有两个按钮，用 flex: 1 均分的话 tab 会被整体推偏，
+ * 看着就是歪的（用户原话：「应该是中正对齐的，目前这个看起来歪斜着」）。
+ */
+:root[data-mobile="true"] .mobile-app-bar-tabs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  flex: 0 0 auto;
+}
+
+:root[data-mobile="true"] .mobile-app-bar-actions .header-text-button,
+:root[data-mobile="true"] .mobile-app-bar-actions .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+:root[data-mobile="true"] .mobile-app-bar-actions .header-text-button:active,
+:root[data-mobile="true"] .mobile-app-bar-actions .icon-button:active {
+  background: var(--surface-hover);
+}
+
+/* 历史对话面板：贴在顶栏正下方的整宽卡片（官方同款） */
+:root[data-mobile="true"] .conversation-history-panel {
+  position: fixed;
+  top: calc(var(--mobile-app-bar-height) + 4px);
+  right: 8px;
+  left: 8px;
+  width: auto;
+  max-height: calc(100dvh - var(--mobile-app-bar-height) - 16px);
+}
+
+/* ---------------- 编辑栏：工具条可横向滚动 ---------------- */
+
+:root[data-mobile="true"] .editor-pane {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+/*
+ * ⚠️ 有「节标签」时 .editor-pane 是 **5 个**子元素
+ * （header / section-tabs-bar / toolbar / document / footer），上面那 4 行会整体
+ * 错位一格：工具条掉进 `1fr` 那行被撑成半屏高、垂直居中飘在屏幕中间，正文被挤到
+ * `auto` 行只占一条。真机截图里「工具条在屏幕中央」就是这个原因。
+ * 桌面版有 .has-section-tabs 变体，移动端这条一直漏着。
+ */
+:root[data-mobile="true"] .editor-pane.has-section-tabs {
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+:root[data-mobile="true"] .editor-pane .editor-toolbar {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/*
+ * 中文的 min-content 宽度只有**一个字**，而 flex 项默认能收缩到 min-content ——
+ * 于是工具条一挤，「编辑 / 预览」就变成竖排的「编 辑」「预 览」。
+ * 工具条本来就是横向滚动的，所以这里让控件不收缩、不换行。
+ */
+:root[data-mobile="true"] .editor-toolbar .view-tabs,
+:root[data-mobile="true"] .editor-toolbar .draft-file-tabs,
+:root[data-mobile="true"] .editor-toolbar .editor-text-tools,
+:root[data-mobile="true"] .editor-toolbar .toolbar-separator {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+:root[data-mobile="true"] .editor-toolbar .view-tabs button,
+:root[data-mobile="true"] .editor-toolbar .draft-file-tabs button,
+:root[data-mobile="true"] .editor-toolbar .editor-text-tools button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* 这里原本还跟着一条 `.editor-toolbar-row`，但渲染层里没有任何元素用这个类
+   （桌面模板只有 .editor-toolbar），是一条从来没生效过的死规则，已删除。 */
+:root[data-mobile="true"] .editor-pane .editor-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * 字数：官方写作页把它放在工具条最右（`编辑 · 预览 ｜ ↺ ↻ 🔍 ⇄ ｜…｜ 6 字`）。
+ * 桌面那一份在底栏，这里把工具条里那份显示出来并推到行尾。
+ */
+:root[data-mobile="true"] .editor-toolbar .editor-character-count {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 10px;
+  color: var(--text-tertiary);
+  font-size: 0.785714rem;
+  white-space: nowrap;
+}
+
+/* 底栏那份藏起来，否则同一屏会出现两个字数。 */
+:root[data-mobile="true"] .editor-footer-meta .editor-character-count {
+  display: none;
+}
+
+/*
+ * 面包屑那一行：官方左边是「创作空间 / 导语」、右边是「本书目录」胶囊。
+ * 桌面那份保存状态与「收起文本内容栏」按钮在手机上多余 —— 保存状态底栏还有一份，
+ * 收起栏是桌面三栏的语义。隐藏后 .editor-header 的 space-between 正好剩两个子元素。
+ */
+:root[data-mobile="true"] .editor-header .editor-header-actions {
+  display: none;
+}
+
+/* ---------------- 空态：对齐官方（只有标题 + 建议胶囊，没有说明段） ---------------- */
+
+:root[data-mobile="true"] .conversation-empty p {
+  display: none;
+}
+
+:root[data-mobile="true"] .conversation-empty h1 {
+  font-size: 1.6rem;
+}
+
+/* ---------------- 输入区：底行不许把整栏撑宽 ---------------- */
+
+/*
+ * 桌面版底行控件多（附件、模型、思考强度、联网、审批、语音、发送），
+ * 360 宽塞不下 —— 之前的表现就是发送键被挤出屏幕右边缘、整页出现横向滚动。
+ * 这里让可选项横向滚动、发送键固定在最右。
+ */
+:root[data-mobile="true"] .composer,
+:root[data-mobile="true"] .composer-stack,
+:root[data-mobile="true"] .composer-input-surface,
+:root[data-mobile="true"] .composer-toolbar {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:root[data-mobile="true"] .composer-toolbar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+:root[data-mobile="true"] .composer-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+:root[data-mobile="true"] .composer-actions {
+  flex: 0 0 auto;
+}
+
+/*
+ * 桌面版的标签很长（"选择模型 · 标准"、"✓ 替我审批"），360 宽下最后一项会被
+ * 截成「选…」，看着像坏了。这里把工具条整体压紧：字号降一档、间距收紧、
+ * 圆形按钮缩到 34，让四个控件排得下。
+ */
+:root[data-mobile="true"] .composer-toolbar {
+  gap: 2px;
+  font-size: 0.82rem;
+}
+
+:root[data-mobile="true"] .composer-toolbar .round-tool-button {
+  width: 34px;
+  height: 34px;
+}
+
+:root[data-mobile="true"] .composer-toolbar .popup-select-trigger,
+:root[data-mobile="true"] .composer-toolbar button {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+/* ---------------- 设置页 ---------------- */
+
+/*
+ * 官方手机端设置 = 「分组列表 → 子页」。两个状态由 SettingsPage 切换：
+ * 根列表只渲染 SettingsGroupedList（侧栏和内容区都不渲染），点子项后整页显示该面板。
+ *
+ * ⚠️ 显式写 flex-direction: column：桌面版 .settings-page 的方向与这里不同，
+ * 只改 display 不写方向的话内容区会被挤到屏幕外（手机上一度就是这样，设置根本点不动）。
+ */
+:root[data-mobile="true"] .settings-page {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100dvh;
+  padding-top: var(--mobile-app-bar-height);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* ---------------- 设置页 · 根：分组列表 ---------------- */
+
+:root[data-mobile="true"] .settings-grouped-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 16px 64px;
+  overflow-y: auto;
+  background: var(--surface-main);
+}
+
+:root[data-mobile="true"] .settings-group-label {
+  margin: 18px 0 8px;
+  color: var(--text-tertiary);
+  font-size: 0.821429rem;
+  font-weight: 500;
+}
+
+:root[data-mobile="true"] .settings-group:first-child .settings-group-label {
+  margin-top: 4px;
+}
+
+:root[data-mobile="true"] .settings-group-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--theme-line-soft);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+
+:root[data-mobile="true"] .settings-group-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.928571rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 行间分隔线：只在相邻行之间画，卡片首行和末行不留边 */
+:root[data-mobile="true"] .settings-group-row + .settings-group-row {
+  border-top: 1px solid var(--theme-line-soft);
+}
+
+:root[data-mobile="true"] .settings-group-row:active {
+  background: var(--surface-hover);
+}
+
+:root[data-mobile="true"] .settings-group-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* AppIcon 的 chevron 本身就是指向右侧的「›」，不用再旋转 */
+:root[data-mobile="true"] .settings-group-row-chevron {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+/* ---------------- 设置页 · 子页：单个面板占满整屏 ---------------- */
+
+:root[data-mobile="true"] .settings-content {
+  flex: 1 1 auto;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 16px 16px 64px;
+  overflow-y: auto;
+}
+
+:root[data-mobile="true"] .settings-layout,
+:root[data-mobile="true"] .skills-layout,
+:root[data-mobile="true"] .team-layout {
+  display: block;
+}
