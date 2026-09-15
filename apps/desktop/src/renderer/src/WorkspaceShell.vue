@@ -741,6 +741,8 @@ const {
   activeRightPanePreferenceKey,
   canCreateEditorSection,
   canDeleteEditorSection,
+  composerNavigation,
+  loadComposerNavigation,
   clearEditorSelectionReferences,
   dispose: disposeWorkspaceResources,
   documentForResourceId,
@@ -1651,6 +1653,8 @@ provide(
   useComposerPicker({
     document: activeAgentDocument,
     sections: resourceTreeSections,
+    longNavigation: composerNavigation,
+    loadLongNavigation: loadComposerNavigation,
     resourceIdForDocumentId,
     select: selectResource,
     selectBook: selectPreferredBook

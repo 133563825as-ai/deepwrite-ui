@@ -107,8 +107,8 @@ function setup(
   return { context, select, selectBook };
 }
 
-describe("useComposerPicker 面板开关条件", () => {
-  it("未打开书籍时两个面板都不提供，卡片退化成纯展示", () => {
+describe("useComposerPicker 面板数据", () => {
+  it("未打开书籍时两个面板仍给出空列表，由面板解释空态而不是让按钮装死", () => {
     const { context } = setup({
       document: {
         id: "d",
@@ -119,16 +119,16 @@ describe("useComposerPicker 面板开关条件", () => {
         content: ""
       }
     });
-    expect(context.stagePicker.value).toBeUndefined();
-    expect(context.bookPicker.value).toBeUndefined();
+    expect(context.stagePicker.value.entries).toEqual([]);
+    expect(context.bookPicker.value.entries).toEqual([]);
   });
 
-  it("缺少 workspaceType 时不提供（长篇与库文档都没有）", () => {
+  it("缺少 workspaceType 时（库文档）同样只给空列表", () => {
     const { context } = setup({
       document: shortDocument({ workspaceType: undefined })
     });
-    expect(context.stagePicker.value).toBeUndefined();
-    expect(context.bookPicker.value).toBeUndefined();
+    expect(context.stagePicker.value.entries).toEqual([]);
+    expect(context.bookPicker.value.entries).toEqual([]);
   });
 
   it("阶段面板取当前书的下一层，currentId 走 resourceIdForDocumentId", () => {
@@ -146,15 +146,15 @@ describe("useComposerPicker 面板开关条件", () => {
     expect(context.stagePicker.value?.currentId).toBe("doc-unknown");
   });
 
-  it("当前书不在树里时不提供阶段面板，但书籍面板照常可用", () => {
+  it("当前书不在树里时阶段列表为空，但书籍面板照常可用", () => {
     const { context } = setup({
       document: shortDocument({ workspaceId: "gone" })
     });
-    expect(context.stagePicker.value).toBeUndefined();
-    expect(context.bookPicker.value?.currentBookId).toBe("gone");
+    expect(context.stagePicker.value.entries).toEqual([]);
+    expect(context.bookPicker.value.currentBookId).toBe("gone");
   });
 
-  it("只有一本书时不提供书籍面板：没有可切的目标就不渲染按钮", () => {
+  it("只有一本书时书籍面板仍然可用：切不了也要能点开看到自己那本", () => {
     const sections = twoBookTree();
     const { context } = setup({
       sections: [
@@ -162,17 +162,47 @@ describe("useComposerPicker 面板开关条件", () => {
         sections[1]!
       ]
     });
-    expect(context.bookPicker.value).toBeUndefined();
-    expect(context.stagePicker.value).not.toBeUndefined();
+    expect(context.bookPicker.value.entries.map((entry) => entry.id)).toEqual([
+      "b1"
+    ]);
+    expect(context.stagePicker.value.entries.map((entry) => entry.id)).toEqual([
+      "s1",
+      "s2"
+    ]);
   });
 
   it("书籍面板列出创作空间的作品并标出当前那本", () => {
     const { context } = setup();
-    expect(context.bookPicker.value?.currentBookId).toBe("b1");
-    expect(context.bookPicker.value?.entries.map((entry) => entry.id)).toEqual([
+    expect(context.bookPicker.value.currentBookId).toBe("b1");
+    expect(context.bookPicker.value.entries.map((entry) => entry.id)).toEqual([
       "b1",
       "b2"
     ]);
+  });
+
+  it("长篇（long-book）也算作品，不能因为只认 book 就把长篇漏掉", () => {
+    const sections = twoBookTree();
+    const { context } = setup({
+      sections: [
+        {
+          ...sections[0]!,
+          nodes: [
+            ...sections[0]!.nodes,
+            {
+              id: "longbook:lb1",
+              label: "长夜",
+              icon: "book",
+              catalogNodeType: "long-book",
+              longBookId: "lb1"
+            }
+          ]
+        },
+        sections[1]!
+      ]
+    });
+    expect(context.bookPicker.value.entries.map((entry) => entry.id)).toContain(
+      "longbook:lb1"
+    );
   });
 });
 

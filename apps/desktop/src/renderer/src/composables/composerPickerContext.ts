@@ -10,10 +10,18 @@ import type { ResourceTreeNode } from "../types/workspace";
  * 与 agentActivityContext 一样由 WorkspaceShell 提供，避免多层组件透传。
  */
 export interface ComposerPickerContext {
-  /** 无法提供阶段树时（未打开书籍 / 素材库 / 技能库 / 长篇）为 undefined。 */
-  stagePicker: ComputedRef<ComposerStagePickerModel | undefined>;
-  /** 创作空间里没有第二本书可切时为 undefined，卡片那半边保持纯展示。 */
-  bookPicker: ComputedRef<ComposerBookPickerModel | undefined>;
+  /**
+   * 阶段面板的数据。未打开作品 / 长篇 / 素材库 / 技能库时 `entries` 为空数组，
+   * 由面板给出空态说明，而不是让卡片那半边变成点不动的展示位。
+   */
+  stagePicker: ComputedRef<ComposerStagePickerModel>;
+  /** 创作空间里的作品列表；一部都没有时 `entries` 为空数组，面板提示去新建。 */
+  bookPicker: ComputedRef<ComposerBookPickerModel>;
+  /**
+   * 打开「阶段」面板之前调用：长篇的阶段来自长篇导航，需要先把它准备好。
+   * 失败不抛错（面板会给出空态说明）。
+   */
+  ensureStageData(): Promise<void>;
   /** 走与左侧栏完全相同的资源选择链路，返回是否切换成功。 */
   selectStage(node: ResourceTreeNode): Promise<boolean>;
   /** 走与新建作品后自动打开相同的链路，返回是否切换成功。 */

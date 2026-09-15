@@ -19,6 +19,11 @@ const props = defineProps<{
   /** 当前选中行的 id，用于打勾高亮。 */
   currentId?: string;
   entries: readonly ComposerPickerEntry[];
+  /**
+   * 列表为空时显示这一句。空态必须由面板来解释，不能让卡片那半边
+   * 变成点不动的死按钮（2026-09-15 真机反馈）。
+   */
+  emptyHint?: string;
 }>();
 
 const emit = defineEmits<{
@@ -90,6 +95,9 @@ onMounted(() => {
         </header>
 
         <div class="composer-picker-tree" role="group" :aria-label="title">
+          <p v-if="!entries.length && emptyHint" class="composer-picker-empty">
+            {{ emptyHint }}
+          </p>
           <template v-for="entry in entries" :key="entry.id">
             <div class="composer-picker-row">
               <button
@@ -245,6 +253,17 @@ onMounted(() => {
   gap: 2px;
   overflow-y: auto;
   padding: 8px 2px 2px;
+}
+
+/* 空态：解释「为什么这里是空的、下一步该点什么」，而不是让入口装死。 */
+.composer-picker-empty {
+  margin: 4px 6px 8px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 0.857143rem;
+  line-height: 1.55;
 }
 
 .composer-picker-row {

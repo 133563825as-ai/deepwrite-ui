@@ -1,4 +1,4 @@
-import { computed, provide } from "vue";
+import { computed, provide, ref, type Ref } from "vue";
 import {
   useWorkspaceResourceCoordinator,
   type WorkspaceResourceCoordinatorOptions
@@ -14,24 +14,41 @@ export function useWorkspaceResourceNavigation(
 ) {
   const resources = useWorkspaceResourceCoordinator(options);
   let navigation: Promise<ComposerContextNavigation | null> | undefined;
+  /**
+   * 已经加载出来的导航，给输入框卡片读长篇的「书籍 / 阶段」用。
+   * 卡片**不主动加载**（那是右键菜单的按需行为）：有人打开过菜单或卡片，
+   * 这里才有值，否则卡片对长篇只给空态说明。
+   */
+  const loadedNavigation: Ref<ComposerContextNavigation | null> = ref(null);
+  async function load(): Promise<ComposerContextNavigation | null> {
+    if (!navigation) {
+      navigation = import("./composerContextNavigation")
+        .then(({ createWorkspaceComposerContextNavigation }) =>
+          createWorkspaceComposerContextNavigation(options, resources)
+        )
+        .then((created) => {
+          loadedNavigation.value = created;
+          return created;
+        })
+        .catch(() => {
+          navigation = undefined;
+          options.notifications.error("加载选择列表失败，请重试");
+          return null;
+        });
+    }
+    return await navigation;
+  }
   provide(COMPOSER_CONTEXT_NAVIGATION, {
     available: computed(() =>
       options.tree.lookup.value.nodeById.has(
         options.state.selectedResourceId.value
       )
     ),
-    load() {
-      navigation ??= import("./composerContextNavigation")
-        .then(({ createWorkspaceComposerContextNavigation }) =>
-          createWorkspaceComposerContextNavigation(options, resources)
-        )
-        .catch(() => {
-          navigation = undefined;
-          options.notifications.error("加载选择列表失败，请重试");
-          return null;
-        });
-      return navigation;
-    }
+    load
   });
-  return resources;
+  return {
+    ...resources,
+    composerNavigation: loadedNavigation,
+    loadComposerNavigation: load
+  };
 }
