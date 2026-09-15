@@ -141,6 +141,32 @@
   border-left: 0;
 }
 
+/*
+ * ⚠️ 手机端「整页功能页」必须自己滚得动。
+ *
+ * 手机端 `.desktop-shell` 被改成了 `display: block`（见上一块），只有
+ * `.conversation-pane / .editor-pane` 拿到了 `height: 100%`；功能页
+ * （`.learning-imitation-main-view`、`.long-book-analysis-main-view`、
+ * `.agent-team-main-view`、`.workspace-settings-main-view` …）是
+ * **`height: auto` + `overflow: auto`**（styles.css 里那份共用规则）——
+ * 于是它们被内容撑到 1000~1700px 高，再被外层 `overflow: hidden` 一刀裁掉：
+ * 自己 `scrollHeight == clientHeight` 滚不动，外面又不滚。
+ *
+ * 用户原话：「短篇学习仿写进去之后，下面还有内容，但是我往上滑，划不动」。
+ * 实测（390×844）：智能体团队下方 266px、短篇拆书 287px、长篇拆书 283px、
+ * 云端备份 363px、短篇学习仿写 885px 全部够不着。
+ *
+ * 给它们确定高度（= 顶栏以下那一段），自带的 `overflow: auto` 才会真正生效。
+ * `[class*="-main-view"]` 是这批页面的共同命名（见 styles.css）。
+ */
+:root[data-mobile="true"] .desktop-shell > [class*="-main-view"] {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  border-left: 0;
+}
+
 /* 一次只显示一栏：顶栏两个 tab 就是切换开关 */
 :root[data-mobile="true"][data-mobile-pane="chat"]
   .desktop-shell
@@ -747,6 +773,28 @@
  */
 :root[data-mobile="true"] .learning-body {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/*
+ * 但光收成一栏还不够：`.learning-dialog` 自己是 `height: 100%; overflow: hidden`
+ * + `grid-template-rows: auto auto auto minmax(0,1fr)`。堆叠之后 body 里两块加起来
+ * 1315px，而那一行只有 486px —— 多出来的部分被**它自己**裁掉（实测最下面的
+ * 智能体面板底部还差 122px 看不到，而且它没有滚动条）。
+ *
+ * 手机上干脆改成「整页滚」：对话框按内容长高，交给外层
+ * `.learning-imitation-main-view`（已有确定高度 + `overflow: auto`）来滚。
+ * 两块面板也不再各自滚（`overflow: visible`），免得出现「框中框」。
+ */
+:root[data-mobile="true"] .learning-dialog {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  grid-template-rows: auto auto auto auto;
+}
+
+:root[data-mobile="true"] .learning-result-pane,
+:root[data-mobile="true"] .learning-agent-pane {
+  overflow: visible;
 }
 
 :root[data-mobile="true"] .learning-result-pane {
