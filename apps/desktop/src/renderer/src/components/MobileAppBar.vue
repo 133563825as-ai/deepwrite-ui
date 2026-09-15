@@ -113,7 +113,10 @@ useMobilePaneSwipe({
     layout.currentView === "workspace" &&
     layout.workspaceMainView === "conversation",
   current: () => shell.activePane,
-  select: (pane) => shell.selectPane(pane)
+  select: (pane) => shell.selectPane(pane),
+  begin: () => shell.beginPaneDrag(),
+  drag: (shift) => shell.dragPaneTo(shift),
+  settle: (pane) => shell.settlePane(pane)
 });
 </script>
 

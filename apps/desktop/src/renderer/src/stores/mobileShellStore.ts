@@ -101,7 +101,39 @@ export const useMobileShellStore = defineStore("mobileShell", () => {
 
   function selectPane(pane: MobilePane): void {
     activePane.value = pane;
+    // 点顶栏 tab 也要**滑过去**，不是瞬间换页：shift 走 0/1，CSS 那边有过渡。
+    paneDragging.value = false;
+    paneShift.value = pane === "writing" ? 1 : 0;
     closeDrawer();
+  }
+
+  /**
+   * 跟手位移：0 = 聊天，1 = 写作，拖动过程中是中间值。
+   *
+   * 用户原话：「我想要的是滑过去……现在切换的很垃圾，跟点击页面有什么区别？」
+   * 所以两栏不再是 `display:none` 硬切，而是同一根轨道上 `translate3d` 位移：
+   * 手指走到哪，页面跟到哪；松手再吸附到最近一格（原版用的是 RN 的 `PagerView`）。
+   */
+  const paneShift = ref(0);
+  /** 拖动中（此时 CSS 关掉过渡，否则跟手会「粘」）。 */
+  const paneDragging = ref(false);
+
+  function beginPaneDrag(): void {
+    paneDragging.value = true;
+  }
+
+  /** 拖动中写入跟手位移；`activePane` 跟着过 0.5 就翻，顶栏 tab 才不会滞后。 */
+  function dragPaneTo(shift: number): void {
+    const clamped = shift < 0 ? 0 : shift > 1 ? 1 : shift;
+    paneShift.value = clamped;
+    activePane.value = clamped >= 0.5 ? "writing" : "chat";
+  }
+
+  /** 松手吸附：只认 0 / 1 两个落点，带过渡动画。 */
+  function settlePane(pane: MobilePane): void {
+    paneDragging.value = false;
+    activePane.value = pane;
+    paneShift.value = pane === "writing" ? 1 : 0;
   }
 
   function syncRootAttributes(): void {
@@ -116,11 +148,16 @@ export const useMobileShellStore = defineStore("mobileShell", () => {
     }
     root.dataset.mobilePane = activePane.value;
     root.dataset.mobileDrawer = drawerOpen.value ? "open" : "closed";
+    // 两栏的位移全靠这一个变量算（见 mobile-shell.css 的「左右滑动轨道」）。
+    root.dataset.mobileDragging = paneDragging.value ? "true" : "false";
+    root.style.setProperty("--mobile-pane-shift", String(paneShift.value));
   }
 
-  watch([isMobile, activePane, drawerOpen], syncRootAttributes, {
-    immediate: true
-  });
+  watch(
+    [isMobile, activePane, drawerOpen, paneShift, paneDragging],
+    syncRootAttributes,
+    { immediate: true }
+  );
 
   // 手机上侧栏始终挂载、由 CSS 平移进出，所以不能让它被 leftCollapsed 卸载掉
   // （那个状态是桌面「收起左栏」的语义，两回事）。
@@ -165,6 +202,11 @@ export const useMobileShellStore = defineStore("mobileShell", () => {
     closeDrawer,
     toggleDrawer,
     selectPane,
+    paneShift,
+    paneDragging,
+    beginPaneDrag,
+    dragPaneTo,
+    settlePane,
     bindViewport
   };
 });
