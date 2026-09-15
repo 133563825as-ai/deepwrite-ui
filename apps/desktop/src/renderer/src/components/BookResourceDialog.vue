@@ -490,6 +490,16 @@ onBeforeUnmount(() => document.removeEventListener("keydown", handleKeydown));
                   ><strong>{{ kind.label }}</strong
                   ><small>{{ materialKindDescription(kind) }}</small></span
                 >
+                <small
+                  v-if="materialOptions(kind.id).length <= 1"
+                  class="binding-empty-tip"
+                  style="
+                    display: block;
+                    margin-bottom: 6px;
+                    color: var(--text-tertiary);
+                  "
+                  >还没有素材库 —— 先在左侧抽屉「素材库」里点 ＋ 新建一个</small
+                >
                 <PopupSelect
                   :model-value="selectedMaterialIds[kind.id]"
                   :options="materialOptions(kind.id)"
@@ -515,6 +525,16 @@ onBeforeUnmount(() => document.removeEventListener("keydown", handleKeydown));
                 <span
                   ><strong>{{ kind.label }}</strong
                   ><small>{{ skillKindDescription(kind) }}</small></span
+                >
+                <small
+                  v-if="skillOptions(kind.id).length <= 1"
+                  class="binding-empty-tip"
+                  style="
+                    display: block;
+                    margin-bottom: 6px;
+                    color: var(--text-tertiary);
+                  "
+                  >还没有技能库 —— 先在左侧抽屉「技能库」里点 ＋ 新建一个</small
                 >
                 <PopupSelect
                   :model-value="selectedSkillIds[kind.id]"

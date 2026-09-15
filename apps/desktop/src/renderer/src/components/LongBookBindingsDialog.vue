@@ -382,6 +382,16 @@ onBeforeUnmount(() => document.removeEventListener("keydown", handleKeydown));
                   </span>
                 </div>
                 <small v-else class="long-binding-empty">当前未关联</small>
+                <small
+                  v-if="materialOptions(kind.id).length <= 1"
+                  class="binding-empty-tip"
+                  style="
+                    display: block;
+                    margin-bottom: 6px;
+                    color: var(--text-tertiary);
+                  "
+                  >还没有素材库 —— 先在左侧抽屉「素材库」里点 ＋ 新建一个</small
+                >
                 <PopupSelect
                   :model-value="materialCandidates[kind.id]"
                   :options="materialOptions(kind.id)"
@@ -433,6 +443,16 @@ onBeforeUnmount(() => document.removeEventListener("keydown", handleKeydown));
                   </span>
                 </div>
                 <small v-else class="long-binding-empty">当前未绑定</small>
+                <small
+                  v-if="skillOptions(kind.id).length <= 1"
+                  class="binding-empty-tip"
+                  style="
+                    display: block;
+                    margin-bottom: 6px;
+                    color: var(--text-tertiary);
+                  "
+                  >还没有技能库 —— 先在左侧抽屉「技能库」里点 ＋ 新建一个</small
+                >
                 <PopupSelect
                   :model-value="skillCandidates[kind.id]"
                   :options="skillOptions(kind.id)"
