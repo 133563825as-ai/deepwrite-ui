@@ -47,8 +47,6 @@ const stageTrigger = ref<HTMLButtonElement | null>(null);
 
 function openPicker(sheet: "book" | "stage"): void {
   openSheet.value = sheet;
-  // 长篇的阶段来自长篇导航，打开面板前先把它准备好；失败由空态兜住。
-  if (sheet === "stage") void pickerContext?.ensureStageData();
 }
 
 /** 关掉面板并把焦点还给刚才那个触发按钮，键盘操作不会丢位置。 */

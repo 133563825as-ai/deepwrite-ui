@@ -15,15 +15,17 @@ export function isComposerPickerNodeAvailable(node: ResourceTreeNode): boolean {
   return node.unavailable !== true && node.missing !== true;
 }
 
+/**
+ * 树节点 → 面板一行，**递归到任意深度**。
+ *
+ * 为什么不只取一层：官方端的「选择具体阶段」就是一棵可展开的树
+ * （世界观 7 → 规则 / 势力 / …；正文 → 第一卷 → 第一章），行尾带数量、
+ * 当前项打勾、并自动展开到当前项。我们的资源树本来就是这个形状，
+ * 直接投影即可 1:1 对齐，不需要第二套数据。
+ */
 export function toComposerPickerItem(
   node: ResourceTreeNode
 ): ComposerPickerItem {
-  return { id: node.id, label: node.label, node };
-}
-
-export function toComposerPickerEntry(
-  node: ResourceTreeNode
-): ComposerPickerEntry {
   const children = (node.children ?? []).filter(isComposerPickerNodeAvailable);
   return {
     id: node.id,
@@ -31,9 +33,12 @@ export function toComposerPickerEntry(
     node,
     // 分组行只在左侧栏允许整组选中时才可选，否则点击只负责展开。
     selectable: children.length === 0 || node.selectableBranch === true,
-    items: children.map(toComposerPickerItem)
+    items: children.map(toComposerPickerItem),
+    ...(node.badge ? { badge: node.badge } : {})
   };
 }
+
+export const toComposerPickerEntry = toComposerPickerItem;
 
 /**
  * 可作为切换目标的作品列表：创作空间里的顶层作品节点，顺序与左侧栏一致。
@@ -81,4 +86,18 @@ export function toComposerBookEntry(
     items: [],
     ...(node.badge ? { badge: node.badge } : {})
   };
+}
+
+/** 在整棵资源树里按 id 找节点。 */
+export function findComposerTreeNode(
+  sections: readonly ResourceTreeSection[],
+  nodeId: string
+): ResourceTreeNode | undefined {
+  const stack = sections.flatMap((section) => section.nodes);
+  while (stack.length) {
+    const node = stack.pop()!;
+    if (node.id === nodeId) return node;
+    if (node.children?.length) stack.push(...node.children);
+  }
+  return undefined;
 }

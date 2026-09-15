@@ -17,11 +17,6 @@ export interface ComposerPickerContext {
   stagePicker: ComputedRef<ComposerStagePickerModel>;
   /** 创作空间里的作品列表；一部都没有时 `entries` 为空数组，面板提示去新建。 */
   bookPicker: ComputedRef<ComposerBookPickerModel>;
-  /**
-   * 打开「阶段」面板之前调用：长篇的阶段来自长篇导航，需要先把它准备好。
-   * 失败不抛错（面板会给出空态说明）。
-   */
-  ensureStageData(): Promise<void>;
   /** 走与左侧栏完全相同的资源选择链路，返回是否切换成功。 */
   selectStage(node: ResourceTreeNode): Promise<boolean>;
   /** 走与新建作品后自动打开相同的链路，返回是否切换成功。 */

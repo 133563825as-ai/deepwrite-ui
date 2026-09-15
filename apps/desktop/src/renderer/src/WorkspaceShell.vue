@@ -741,8 +741,6 @@ const {
   activeRightPanePreferenceKey,
   canCreateEditorSection,
   canDeleteEditorSection,
-  composerNavigation,
-  loadComposerNavigation,
   clearEditorSelectionReferences,
   dispose: disposeWorkspaceResources,
   documentForResourceId,
@@ -1653,8 +1651,8 @@ provide(
   useComposerPicker({
     document: activeAgentDocument,
     sections: resourceTreeSections,
-    longNavigation: composerNavigation,
-    loadLongNavigation: loadComposerNavigation,
+    // 面板要在树上打勾并自动展开到当前项，得知道左侧栏现在选中的是谁。
+    activeResourceId: selectedResourceId,
     // 资源树里可能同时挂着好几本长篇，必须告诉面板「当前打开的是哪一本」。
     activeLongBookResourceId: computed(() =>
       activeLongBookId.value

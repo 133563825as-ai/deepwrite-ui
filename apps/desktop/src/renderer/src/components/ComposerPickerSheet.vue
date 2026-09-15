@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { createId } from "@deepwrite/shared";
 import type {
   ComposerPickerEntry,
@@ -7,11 +7,14 @@ import type {
 } from "../types/composerPicker";
 import type { ResourceTreeNode } from "../types/workspace";
 import AppIcon from "./AppIcon.vue";
+import ComposerPickerRow from "./ComposerPickerRow.vue";
 
 /**
  * 输入框卡片两个半边的通用底部面板：书籍列表与阶段列表都用它。
- * 只负责渲染一组行（可展开的分组 + 叶子行）并回报选中的节点，
- * 选中之后到底切什么由调用方决定。
+ *
+ * 阶段列表是一棵**可展开的树**（与官方端一致）：
+ * `正文 → 第一卷 → 第一章`、`世界观 → 规则 / 势力 / …`，行尾带数量、
+ * 当前项打勾，打开面板时**自动展开到当前项**，不用用户一层层点。
  */
 const props = defineProps<{
   title: string;
@@ -33,37 +36,83 @@ const emit = defineEmits<{
 
 const titleId = createId("composer-picker-title");
 const sheet = ref<HTMLElement | null>(null);
+/** 折叠的行 id；默认全展开，用户收起过哪一行才记下来。 */
 const collapsedIds = ref<readonly string[]>([]);
 
-function isExpanded(entry: ComposerPickerEntry): boolean {
-  return !collapsedIds.value.includes(entry.id);
+function collectExpandable(
+  entries: readonly ComposerPickerItem[],
+  into: string[] = []
+): string[] {
+  for (const entry of entries) {
+    if (entry.items.length) {
+      into.push(entry.id);
+      collectExpandable(entry.items, into);
+    }
+  }
+  return into;
 }
 
-function toggleGroup(entry: ComposerPickerEntry): void {
-  collapsedIds.value = isExpanded(entry)
-    ? [...collapsedIds.value, entry.id]
-    : collapsedIds.value.filter((id) => id !== entry.id);
+function expandedIds(): readonly string[] {
+  return collectExpandable(props.entries).filter(
+    (id) => !collapsedIds.value.includes(id)
+  );
 }
 
-function isCurrent(id: string): boolean {
-  return props.currentId === id;
+function toggleGroup(id: string): void {
+  collapsedIds.value = collapsedIds.value.includes(id)
+    ? collapsedIds.value.filter((existing) => existing !== id)
+    : [...collapsedIds.value, id];
 }
 
-function chooseEntry(entry: ComposerPickerEntry): void {
-  if (!entry.selectable) {
-    toggleGroup(entry);
+/**
+ * 默认展开策略（对齐官方端的观感，避免一打开就是几百行）：
+ *   1. 当前项在列表里 → 展开「到它的祖先路径」+「它自己」；
+ *      当前项是第一层分组时，展开的就是那个分组（官方截图里「世界观」展开就是这个）。
+ *   2. 找不到当前项（例如刚打开书、还没有具体阶段）→ 只展开第一个有子项的分组。
+ */
+function applyDefaultExpansion(): void {
+  const expandable = collectExpandable(props.entries);
+  if (!props.currentId) {
+    collapsedIds.value = expandable.filter(
+      (id) => id !== firstExpandableId()
+    );
     return;
   }
-  emit("select", entry.node);
+  let found = false;
+  const keep = new Set<string>();
+  const walk = (entries: readonly ComposerPickerItem[], path: string[]) => {
+    for (const entry of entries) {
+      if (entry.id === props.currentId) {
+        found = true;
+        for (const id of path) keep.add(id);
+        if (entry.items.length) keep.add(entry.id);
+      }
+      if (entry.items.length) walk(entry.items, [...path, entry.id]);
+    }
+  };
+  walk(props.entries, []);
+  if (!found) {
+    collapsedIds.value = expandable.filter((id) => id !== firstExpandableId());
+    return;
+  }
+  collapsedIds.value = expandable.filter((id) => !keep.has(id));
 }
 
-function chooseItem(item: ComposerPickerItem): void {
-  emit("select", item.node);
+function firstExpandableId(): string | undefined {
+  const [first] = props.entries;
+  return first?.items.length ? first.id : undefined;
 }
 
 onMounted(() => {
   sheet.value?.focus();
+  applyDefaultExpansion();
 });
+
+// 面板每次换内容（切换书 / 目标）都重新按当前项展开。
+watch(
+  () => [props.currentId, props.entries] as const,
+  () => applyDefaultExpansion()
+);
 </script>
 
 <template>
@@ -98,74 +147,16 @@ onMounted(() => {
           <p v-if="!entries.length && emptyHint" class="composer-picker-empty">
             {{ emptyHint }}
           </p>
-          <template v-for="entry in entries" :key="entry.id">
-            <div class="composer-picker-row">
-              <button
-                v-if="entry.items.length"
-                type="button"
-                class="composer-picker-caret"
-                :class="{ 'is-expanded': isExpanded(entry) }"
-                :aria-expanded="isExpanded(entry)"
-                :aria-label="`${isExpanded(entry) ? '收起' : '展开'}${entry.label}`"
-                @click="toggleGroup(entry)"
-              >
-                <AppIcon name="chevron" :size="12" />
-              </button>
-              <span
-                v-else
-                class="composer-picker-caret is-placeholder"
-                aria-hidden="true"
-              />
-              <button
-                type="button"
-                class="composer-picker-select"
-                :class="{ 'is-current': isCurrent(entry.id) }"
-                :aria-current="isCurrent(entry.id) ? 'true' : undefined"
-                @click="chooseEntry(entry)"
-              >
-                <span class="composer-picker-label">{{ entry.label }}</span>
-                <span v-if="entry.badge" class="composer-picker-badge">{{
-                  entry.badge
-                }}</span>
-                <span v-if="entry.items.length" class="composer-picker-count">{{
-                  entry.items.length
-                }}</span>
-                <AppIcon
-                  v-if="isCurrent(entry.id)"
-                  class="composer-picker-check"
-                  name="check"
-                  :size="14"
-                />
-              </button>
-            </div>
-
-            <div
-              v-if="entry.items.length && isExpanded(entry)"
-              class="composer-picker-children"
-            >
-              <div
-                v-for="item in entry.items"
-                :key="item.id"
-                class="composer-picker-row is-child"
-              >
-                <button
-                  type="button"
-                  class="composer-picker-select"
-                  :class="{ 'is-current': isCurrent(item.id) }"
-                  :aria-current="isCurrent(item.id) ? 'true' : undefined"
-                  @click="chooseItem(item)"
-                >
-                  <span class="composer-picker-label">{{ item.label }}</span>
-                  <AppIcon
-                    v-if="isCurrent(item.id)"
-                    class="composer-picker-check"
-                    name="check"
-                    :size="14"
-                  />
-                </button>
-              </div>
-            </div>
-          </template>
+          <ComposerPickerRow
+            v-for="entry in entries"
+            :key="entry.id"
+            :entry="entry"
+            :current-id="currentId"
+            :expanded-ids="expandedIds()"
+            :depth="0"
+            @select="emit('select', $event)"
+            @toggle="toggleGroup"
+          />
         </div>
       </section>
     </div>
@@ -258,110 +249,11 @@ onMounted(() => {
 /* 空态：解释「为什么这里是空的、下一步该点什么」，而不是让入口装死。 */
 .composer-picker-empty {
   margin: 4px 6px 8px;
-  padding: 12px 12px;
+  padding: 12px;
   border-radius: 12px;
   background: var(--surface-muted);
   color: var(--text-secondary);
   font-size: 0.857143rem;
   line-height: 1.55;
-}
-
-.composer-picker-row {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.composer-picker-caret {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 30px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-}
-
-.composer-picker-caret > svg {
-  transition: transform 0.15s ease;
-}
-
-.composer-picker-caret.is-expanded > svg {
-  transform: rotate(90deg);
-}
-
-.composer-picker-caret:hover {
-  background: var(--surface-hover);
-  color: var(--text-secondary);
-}
-
-.composer-picker-caret.is-placeholder {
-  visibility: hidden;
-}
-
-.composer-picker-select {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 11px;
-  background: transparent;
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 0.928571rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.composer-picker-select:hover {
-  background: var(--surface-hover);
-}
-
-.composer-picker-select.is-current {
-  background: var(--surface-selected);
-  color: var(--accent);
-  font-weight: 560;
-}
-
-.composer-picker-label {
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.composer-picker-badge {
-  flex: 0 0 auto;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--surface-muted);
-  color: var(--text-tertiary);
-  font-size: 0.714286rem;
-  font-weight: 400;
-}
-
-.composer-picker-count {
-  flex: 0 0 auto;
-  color: var(--text-tertiary);
-  font-size: 0.785714rem;
-  font-weight: 400;
-}
-
-.composer-picker-check {
-  flex: 0 0 auto;
-  color: var(--accent);
-}
-
-.composer-picker-children {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-left: 28px;
 }
 </style>
