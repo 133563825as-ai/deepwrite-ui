@@ -1655,6 +1655,12 @@ provide(
     sections: resourceTreeSections,
     longNavigation: composerNavigation,
     loadLongNavigation: loadComposerNavigation,
+    // 资源树里可能同时挂着好几本长篇，必须告诉面板「当前打开的是哪一本」。
+    activeLongBookResourceId: computed(() =>
+      activeLongBookId.value
+        ? longBookResourceId(activeLongBookId.value)
+        : undefined
+    ),
     resourceIdForDocumentId,
     select: selectResource,
     selectBook: selectPreferredBook

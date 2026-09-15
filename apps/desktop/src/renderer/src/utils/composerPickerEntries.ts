@@ -62,19 +62,23 @@ export function composerBookEntries(
     .map(toComposerBookEntry);
 }
 
-/** 创作空间里的作品节点 → 选择面板里的一行（章节 / 阶段作为可展开的子项）。 */
+/**
+ * 创作空间里的作品节点 → 选择面板里的一行。
+ *
+ * ⚠️ **平铺一行，不带子项**。曾经把作品下面的阶段 / 章节挂成可展开子项，
+ * 结果是「书籍」面板里塞进了每一本的阶段，而右边「阶段」面板反而空了 ——
+ * 用户的原话是「你把这两个功能合二为一了，全部集中在这里」。
+ * 左边只管「换哪本书」，右边只管「这本书的哪个阶段」，两边不要互相渗透。
+ */
 export function toComposerBookEntry(
   node: ResourceTreeNode
 ): ComposerPickerEntry {
-  const children = (node.children ?? []).filter(isComposerPickerNodeAvailable);
   return {
     id: node.id,
     label: node.label,
     node,
-    // 作品行只负责选中「切到这部作品」；它的下一层（阶段 / 章节）用右侧的
-    // caret 展开浏览，展开项本身不承担选择动作。
     selectable: true,
-    items: children.map(toComposerPickerItem),
+    items: [],
     ...(node.badge ? { badge: node.badge } : {})
   };
 }

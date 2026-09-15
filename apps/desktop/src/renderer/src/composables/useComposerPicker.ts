@@ -16,8 +16,9 @@ import {
 } from "../utils/composerPickerEntries";
 import type { ComposerContextNavigation } from "./composerContextNavigationContext";
 import {
-  currentLongNavigationKey,
-  findLongBookIdForDocument,
+  currentLongBookResourceId,
+  currentLongNavigationId,
+  findOpenLongBook,
   longNavigationEntries
 } from "../utils/composerLongNavigation";
 
@@ -36,25 +37,17 @@ export interface ComposerPickerOptions {
    * 去多拉一次数据）；只有已经加载过、`longNavigation` 有值时才会用到它。
    */
   loadLongNavigation?: () => Promise<ComposerContextNavigation | null>;
+  /**
+   * 当前打开的长篇作品资源 id（`longBookResourceId(activeLongBookId)`）。
+   * 资源树里可能挂着好几本长篇，没有它就只能猜。
+   */
+  activeLongBookResourceId?: Readonly<Ref<string | undefined>>;
   resourceIdForDocumentId(documentId: string): string | undefined;
   select(node: ResourceTreeNode): Promise<unknown>;
   /** 切到另一本书；与新建作品后自动打开走同一条链路。 */
   selectBook(bookId: string): Promise<boolean>;
 }
 
-function findLongBookLabel(
-  sections: readonly ResourceTreeSection[],
-  longBookId: string | undefined
-): string | undefined {
-  if (!longBookId) return undefined;
-  const stack = sections.flatMap((section) => section.nodes);
-  while (stack.length) {
-    const node = stack.pop()!;
-    if (node.id === longBookId) return node.label;
-    if (node.children?.length) stack.push(...node.children);
-  }
-  return undefined;
-}
 
 function findBookNode(
   sections: readonly ResourceTreeSection[],
@@ -100,32 +93,33 @@ export function useComposerPicker(
     if (bookNode) {
       return {
         bookTitle: bookNode.label,
-        currentId:
-          options.resourceIdForDocumentId(document.id) ?? document.id,
+        currentId: options.resourceIdForDocumentId(document.id) ?? document.id,
         entries: (bookNode.children ?? [])
           .filter(isComposerPickerNodeAvailable)
           .map(toComposerPickerEntry)
       };
     }
-    // 长篇：章节不在短篇那棵子树里，走长篇导航的可选项。
+    // 长篇：阶段 / 章节不在短篇那棵子树里，走长篇导航的可选项（节点取真节点）。
     const navigation = options.longNavigation?.value ?? null;
-    const longBookResourceId = findLongBookIdForDocument(options.sections.value);
-    const bookTitle =
-      findLongBookLabel(options.sections.value, longBookResourceId) ??
-      document.workspaceTitle ??
-      "";
+    const longBook = findOpenLongBook(
+      options.sections.value,
+      options.activeLongBookResourceId?.value ??
+        currentLongBookResourceId(navigation)
+    );
     return {
-      bookTitle,
-      currentId:
-        currentLongNavigationKey(document.id, navigation) ?? document.id,
-      entries: longNavigationEntries(navigation, longBookResourceId)
+      bookTitle: longBook?.label ?? document.workspaceTitle ?? "",
+      currentId: currentLongNavigationId(navigation) ?? document.id,
+      entries: longNavigationEntries(options.sections.value, navigation, longBook)
     };
   });
 
   const bookPicker = computed<ComposerBookPickerModel>(() => {
-    const workspaceId =
-      currentShortWorkspaceId() ??
-      findLongBookIdForDocument(options.sections.value);
+    const longBook = findOpenLongBook(
+      options.sections.value,
+      options.activeLongBookResourceId?.value ??
+        currentLongBookResourceId(options.longNavigation?.value ?? null)
+    );
+    const workspaceId = currentShortWorkspaceId() ?? longBook?.id;
     return {
       ...(workspaceId ? { currentBookId: workspaceId } : {}),
       entries: composerBookEntries(options.sections.value)
