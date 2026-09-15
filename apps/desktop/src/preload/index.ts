@@ -1,3 +1,4 @@
+import { textContextMenu } from "./text-context-menu-api";
 import { analysisApis } from "./analysis-apis";
 import { conversationExport } from "./conversation-export-api";
 import { cloudBackup } from "./cloud-backup-api";
@@ -1084,6 +1085,7 @@ async function invokeMarketplace(rawRequest: unknown): Promise<unknown> {
 }
 
 const api: DeepWriteApi = {
+  textContextMenu,
   system: {
     health: getHealth
   },

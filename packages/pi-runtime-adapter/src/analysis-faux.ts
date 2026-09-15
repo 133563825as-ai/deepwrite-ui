@@ -10,24 +10,28 @@ export function analysisFauxResponses(input: AgentRunInput) {
     return [
       fauxAssistantMessage(
         fauxToolCall(
-          "write_revision_analysis_result",
+          "create_skill_draft",
           {
-            report:
-              "# 修改分析报告\n\n这是 Faux Runtime 验证结果。\n\n" +
-              revision.changes
-                .map(
-                  (c, i) =>
-                    `差异 ${i + 1}（${c.id}）：${c.reason || "修改动机为推断"}`
-                )
-                .join("\n"),
             title: "修改方向技能",
-            body: "# 修改方向\n\n适用场景：文稿修订。\n\n1. 阅读原文与修改目标。\n2. 根据证据调整表达。\n3. 检查是否保留作品事实。\n\n这是 Faux Runtime 验证草稿。"
+            description: "在文稿修订时根据修改证据调整表达并保留作品事实。",
+            content:
+              "# 修改方向\n\n适用场景：文稿修订。\n\n1. 阅读原文与修改目标。\n2. 根据证据调整表达。\n3. 检查是否保留作品事实。\n\n这是 Faux Runtime 验证草稿。"
           },
           { id: `${input.runId}-revision-result` }
         ),
         { stopReason: "toolUse" }
       ),
-      fauxAssistantMessage(fauxText("修改分析完成。"))
+      fauxAssistantMessage(
+        fauxText(
+          "# 修改分析报告\n\n这是 Faux Runtime 验证结果。\n\n" +
+            revision.changes
+              .map(
+                (c, i) =>
+                  `差异 ${i + 1}（${c.id}）：${c.reason || "修改动机为推断"}`
+              )
+              .join("\n")
+        )
+      )
     ];
   const short = input.workspaceContext?.shortBookAnalysis;
   if (short)
@@ -36,8 +40,9 @@ export function analysisFauxResponses(input: AgentRunInput) {
         fauxToolCall(
           "write_analysis_result",
           {
-            title: `${input.shortBookAnalysisProfile?.name ?? "短篇拆书"}｜${short.books.length} 本`,
-            body: `# 短篇联合分析\n\n${short.books.map((b) => `- 《${b.title}》：已读取完整短篇。`).join("\n")}\n\n这是 Faux Runtime 验证结果。`
+            name: `${input.shortBookAnalysisProfile?.name ?? "短篇拆书"}｜${short.books.length} 本`,
+            description: "根据作品证据提炼可复用的写作方法与适用场景。",
+            content: `# 短篇联合分析\n\n${short.books.map((b) => `- 《${b.title}》：已读取完整短篇。`).join("\n")}\n\n这是 Faux Runtime 验证结果。`
           },
           { id: `${input.runId}-short-result` }
         ),
@@ -54,8 +59,9 @@ export function analysisFauxResponses(input: AgentRunInput) {
       ? fauxToolCall(
           "write_analysis_result",
           {
-            title: `${input.longBookAnalysisProfile?.name ?? "长篇拆书"}｜第 ${chapterStart}-${chapterEnd} 章`,
-            body: [
+            name: `${input.longBookAnalysisProfile?.name ?? "长篇拆书"}｜第 ${chapterStart}-${chapterEnd} 章`,
+            description: "根据作品证据提炼可复用的写作方法与适用场景。",
+            content: [
               `# ${input.longBookAnalysisProfile?.name ?? "长篇拆书分析"}`,
               "",
               `> 分析范围：第 ${chapterStart}-${chapterEnd} 章`,

@@ -71,7 +71,8 @@ const api = {
           characterCount: text.length
         }))
       }),
-      load: async (id: string) => sources.find((s) => s.id === id)
+      load: async (id: string) => sources.find((s) => s.id === id),
+      delete: async (id: string) => id
     },
     addText: async (input: { title: string; text: string }) => ({
       ...sources[0],
@@ -170,6 +171,79 @@ async function run() {
       c.activeId.value === "book-2",
     "Saved source loads directly from header"
   );
+  const nativeConfirm = window.confirm;
+  try {
+    window.confirm = () => {
+      throw new Error("Removal must not ask for confirmation");
+    };
+    c.toggleBook("book-2");
+    document
+      .querySelector<HTMLButtonElement>(
+        `[aria-label="去除 ${sources[2]!.title}"]`
+      )!
+      .click();
+    await frame();
+    check(
+      !c.drafts.value.some((book) => book.id === "book-2") &&
+        !c.selectedIds.value.includes("book-2"),
+      "Removal clears current draft and selection"
+    );
+    check(
+      c.savedSources.value.some((book) => book.id === "book-2"),
+      "Removal retains saved source"
+    );
+    const openHistory = async () => {
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="已保存短篇"]')!
+        .click();
+      await frame();
+    };
+    await openHistory();
+    Array.from(document.querySelectorAll<HTMLButtonElement>('[role="option"]'))
+      .find((el) => el.textContent?.includes(sources[2]!.title))!
+      .click();
+    await frame();
+    check(
+      c.drafts.value.some((book) => book.id === "book-2"),
+      "Removed source can be selected again immediately"
+    );
+    window.confirm = () => false;
+    const deleteButton = () =>
+      document.querySelector<HTMLButtonElement>(
+        `[aria-label="彻底删除 ${sources[2]!.title}"]`
+      )!;
+    await openHistory();
+    deleteButton().click();
+    await frame();
+    check(
+      c.drafts.value.some((book) => book.id === "book-2"),
+      "Cancel retains source"
+    );
+    window.confirm = () => true;
+    await openHistory();
+    deleteButton().click();
+    await frame();
+    check(
+      !c.drafts.value.some((book) => book.id === "book-2"),
+      "Delete removes source from current list"
+    );
+    check(
+      !c.savedSources.value.some((book) => book.id === "book-2"),
+      "Delete removes saved source option"
+    );
+    check(
+      c.activeId.value === "pasted",
+      "Delete switches editor to remaining source"
+    );
+    check(
+      document
+        .querySelector('[aria-label="已保存短篇"]')
+        ?.textContent?.includes("选择已导入短篇"),
+      "History selection clears after deletion"
+    );
+  } finally {
+    window.confirm = nativeConfirm;
+  }
   c.drafts.value = [...sources];
   c.activeId.value = "book-0";
   for (let i = 0; i < 10; i++) c.toggleBook(`book-${i}`);
@@ -194,13 +268,58 @@ async function run() {
     request?.workspaceContext?.shortBookAnalysis?.books.length === 10,
     "Ten complete texts submitted"
   );
+  check(
+    Array.from(
+      document.querySelectorAll<HTMLButtonElement>(".short-book-remove")
+    ).every((el) => el.disabled),
+    "Removal is disabled during analysis"
+  );
+  check(
+    !document.querySelector(":popover-open"),
+    "Run details stay closed on start"
+  );
+  const statusTrigger = document.querySelector<HTMLButtonElement>(
+    ".analysis-status-trigger"
+  )!;
+  statusTrigger.click();
+  await frame();
+  check(document.querySelector(":popover-open"), "Status opens run details");
+  emit("agent.thinking_delta", { delta: "Private test reasoning" });
+  emit("agent.message_delta", { delta: "公开分析：人物目标与冲突正在整理。" });
+  await frame();
+  check(
+    document
+      .querySelector(".analysis-process-output")
+      ?.textContent?.includes("公开分析"),
+    "Public stream is visible in details"
+  );
+  check(
+    !document
+      .querySelector(".analysis-status-popover")
+      ?.textContent?.includes("Private test reasoning"),
+    "Internal reasoning is not exposed"
+  );
+  document
+    .querySelector<HTMLButtonElement>('[aria-label="关闭运行详情"]')!
+    .click();
+  await frame();
+  check(
+    !document.querySelector(":popover-open") && c.isBusy.value,
+    "Closing details leaves analysis running"
+  );
+  check(
+    document.activeElement === statusTrigger,
+    "Closing details restores focus"
+  );
   visible.value = false;
   await frame();
   emit("short_book_analysis.result_updated", {
     jobId: request!.workspaceContext!.shortBookAnalysis!.jobId,
     result: {
-      title: "综合分析",
-      body: "# 核心发现\n\n两篇都通过迟到的消息引出人物选择，结尾呈现不同代价。"
+      name: "综合分析",
+      description: "用于提炼写作方法。",
+      content:
+        "# 核心发现\n\n两篇都通过迟到的消息引出人物选择，结尾呈现不同代价。"
     }
   });
   emit("agent.message_completed");
@@ -214,6 +333,12 @@ async function run() {
     .querySelector<HTMLButtonElement>('[aria-label="管理拆书预设"]')!
     .click();
   await frame();
+  if (!document.querySelector('[aria-label="可选择书本数量"]')) {
+    document
+      .querySelector<HTMLButtonElement>(".preset-card-heading .preset-summary")
+      ?.click();
+    await frame();
+  }
   check(
     document.querySelector('[aria-label="可选择书本数量"]'),
     "Selection mode is configurable"
@@ -239,7 +364,7 @@ async function run() {
   await frame();
   button("取消").click();
   await frame();
-  return { passed: true, checks: 10 };
+  return { passed: true, checks: 20 };
 }
 async function show(
   scheme: "light" | "dark",

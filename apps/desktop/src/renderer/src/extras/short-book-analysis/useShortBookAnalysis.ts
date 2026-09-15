@@ -1,3 +1,4 @@
+import { analysisResultEntry } from "../long-book-analysis/analysis-result-content";
 import { computed, ref, shallowRef, watch } from "vue";
 import {
   ShortBookAnalysisSettingsInputSchema,
@@ -85,6 +86,16 @@ export function useShortBookAnalysis(options: {
     activeId.value = sources[0]?.id ?? activeId.value;
     await loadSources();
   }
+  function removeDraft(id: string) {
+    const index = drafts.value.findIndex((book) => book.id === id);
+    if (index < 0) return;
+    run.clear();
+    drafts.value = drafts.value.filter((book) => book.id !== id);
+    selectedIds.value = selectedIds.value.filter((value) => value !== id);
+    if (activeId.value === id)
+      activeId.value =
+        drafts.value[Math.min(index, drafts.value.length - 1)]?.id ?? "";
+  }
   return {
     ...run,
     presets,
@@ -162,6 +173,24 @@ export function useShortBookAnalysis(options: {
         ? selectedIds.value.filter((value) => value !== id)
         : [...selectedIds.value, id];
     },
+    removeBook(id: string) {
+      editable();
+      removeDraft(id);
+    },
+    async deleteSource(id: string) {
+      editable();
+      loading.value = true;
+      try {
+        await api().shortBookAnalysis.sources.delete(id);
+        if (disposed) return;
+        removeDraft(id);
+        savedSources.value = savedSources.value.filter(
+          (book) => book.id !== id
+        );
+      } finally {
+        loading.value = false;
+      }
+    },
     updateBook(id: string, input: { title: string; text: string }) {
       editable();
       const index = drafts.value.findIndex((b) => b.id === id);
@@ -209,8 +238,7 @@ export function useShortBookAnalysis(options: {
         throw new Error("没有已完成的分析结果。");
       const base = {
         libraryId: input.libraryId,
-        title: result.title,
-        content: result.body,
+        ...analysisResultEntry(result, output.domain),
         ...(input.baseProjectRevision !== undefined
           ? { baseProjectRevision: input.baseProjectRevision }
           : {})
