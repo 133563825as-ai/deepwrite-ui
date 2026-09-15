@@ -625,3 +625,209 @@
   flex: 1 1 auto;
   white-space: nowrap;
 }
+
+/* ---------------- 设置子页 · 手机端 ---------------- */
+
+/*
+ * 设置子页里那个 2.57rem 的大标题（「外观」「常规」…）是给桌面端宽栏用的，
+ * 手机上顶栏已经写着「‹ 外观」了，再来一个 36px 标题 + 60px 下边距 = 白占 100px。
+ * 和功能页/工作区页一个处理：手机上不显示。
+ */
+:root[data-mobile="true"] .settings-title {
+  display: none;
+}
+
+/*
+ * 外观页「浅色主题 / 导入 / 复制主题 / 主题预设」这一行：媒体查询（1100px 以下）
+ * 已经把它竖过来了，但**操作区仍然是 nowrap 的 flex**，预设选择控件把两个
+ * 文字按钮挤到只剩一个字宽 —— 截图里「导入」「复制主题」是竖排的两个字。
+ * 允许换行 + 按钮不折行，选择控件自己占一行。
+ */
+:root[data-mobile="true"] .theme-config-actions {
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+:root[data-mobile="true"] .theme-config-actions > button {
+  white-space: nowrap;
+}
+
+:root[data-mobile="true"] .theme-config-actions .preset-select-control {
+  flex: 1 1 100%;
+}
+
+/*
+ * 卡片头右侧的小徽标（创作空间配置里的「固定」）：它没有 `flex: none`，
+ * 手机上会被左侧标题挤到 17px 宽 —— 「固定」两个字竖成一列（截图实测）。
+ * 这类徽标都只有两三个字，让它不参与收缩、也不折行。
+ */
+:root[data-mobile="true"] .section-heading > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* ---------------- 功能页（抽屉「更多功能」）· 手机端 ---------------- */
+
+/*
+ * 页面里重复的页头：顶栏已经是「‹ 修改分析」，页面里再来一遍
+ * 「更多功能 / 修改分析 / 一句话描述」就是白占首屏 ~110px（截图里六张图全是这样）。
+ * 参照 §24.2 工作区页的做法：**描述留着**（它是有信息量的），只去掉 eyebrow 和大标题。
+ *
+ * ⚠️ 只认页头里的那几个 eyebrow：`.analysis-eyebrow` 在拆书页的卡片里
+ * 还当小节标题用（「选择范围与预设」），全局隐藏会把它们一起干掉。
+ */
+:root[data-mobile="true"] .analysis-page-header .analysis-eyebrow,
+:root[data-mobile="true"] .comparison-page-header .comparison-eyebrow,
+:root[data-mobile="true"] .backup-header .backup-eyebrow,
+:root[data-mobile="true"] .marketplace-header .marketplace-eyebrow,
+:root[data-mobile="true"] .sync-page-heading .sync-eyebrow,
+:root[data-mobile="true"] .learning-head .learning-eyebrow {
+  display: none;
+}
+
+/*
+ * 大标题也不是 `display: none` —— 用「视觉隐藏」：学习仿写那页的
+ * `aria-labelledby="learning-dialog-title"` 指的就是这个 h2，直接 display:none
+ * 会把对话框的无障碍名字一起弄没。
+ */
+:root[data-mobile="true"] .analysis-page-header > div > h1,
+:root[data-mobile="true"] .comparison-page-header > div > h1,
+:root[data-mobile="true"] .backup-header > div > h1,
+:root[data-mobile="true"] .marketplace-header > div > h1,
+:root[data-mobile="true"] .sync-page-heading > div > h1,
+:root[data-mobile="true"] .learning-head .learning-title-row > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 标题去掉后描述顶上，页头本身也收一收内边距，别留一条空白带。 */
+:root[data-mobile="true"]
+  :is(
+    .analysis-page-header,
+    .comparison-page-header,
+    .backup-header,
+    .marketplace-header,
+    .sync-page-heading
+  ) {
+  padding-top: 14px;
+  padding-bottom: 12px;
+  gap: 12px;
+}
+
+/*
+ * 拆书页（长篇/短篇共用 .long-book-analysis-page）的页头描述写死
+ * `white-space: nowrap; text-overflow: ellipsis; max-width: 650px` —— 在手机上
+ * 就是把「支持最多 10 本联合分析」截成「…联合分…」。标题已经去掉了，
+ * 这句描述是页面上唯一的说明文字，让它换行。
+ */
+:root[data-mobile="true"]
+  .long-book-analysis-page
+  .analysis-page-header
+  .analysis-page-intro
+  > p:last-child {
+  max-width: 100%;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+/* ---------------- 短篇学习仿写 · 手机端（这页原本在手机上是碎的） ---------------- */
+
+/*
+ * 这一页是「左结果 / 右智能体」两栏网格：`minmax(0,1.65fr) minmax(340px,0.8fr)`。
+ * 手机 390px 宽时第二栏硬要 340px，左栏只剩 **34px** —— 截图里那段竖排的
+ * 单字文字就是这么来的。手机上收成一栏，两块上下排。
+ */
+:root[data-mobile="true"] .learning-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:root[data-mobile="true"] .learning-result-pane {
+  border-bottom: 1px solid var(--theme-line-soft);
+}
+
+:root[data-mobile="true"] .learning-agent-pane {
+  border-left: 0;
+}
+
+/*
+ * 页头是「标题块 + 操作区」的 flex 行：手机上标题块把操作区挤成 45px 宽，
+ * 「新建学习」被压成一列一个字。改成上下两行，操作区右对齐。
+ */
+:root[data-mobile="true"] .learning-head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px 16px 14px;
+}
+
+:root[data-mobile="true"] .learning-head-actions {
+  justify-content: flex-end;
+}
+
+/*
+ * 样本条是一行不换行的 flex：手机上一挤，`+ 上传正文` 按钮和「尚未上传正文」
+ * 直接被顶出屏幕（实测按钮右边缘 399px > 视口 390px）。允许换行。
+ */
+:root[data-mobile="true"] .learning-source-bar {
+  flex-wrap: wrap;
+  padding: 10px 16px;
+}
+
+/* 「确认落盘」这类面板头按钮：手机上被挤成两行，给它们不换行。 */
+:root[data-mobile="true"] .learning-panel-head button,
+:root[data-mobile="true"] .learning-head-actions button {
+  white-space: nowrap;
+}
+
+/* 步骤 tab：三个各 99px，徽标 + 四个字刚好放不下，「剧情设计学习」折成两行。 */
+:root[data-mobile="true"] .learning-tabs button {
+  gap: 4px;
+  padding: 7px 4px;
+}
+
+:root[data-mobile="true"] .learning-tabs button strong {
+  font-size: 0.785714rem;
+  white-space: nowrap;
+}
+
+/* ---------------- 设置 · 旧官方小站模型：9 列表格 ---------------- */
+
+/*
+ * 表格 min-width 980px，手机上是「横向拉一条 980px 的表」看得见 3 列。
+ * 手机上只留 模型 / 价格 / 启用 / 状态，其余（消耗与折扣明细）隐藏 ——
+ * 那几列是桌面端对账用的，手机上看不到全貌反而更容易误读。
+ */
+:root[data-mobile="true"] .official-model-table {
+  min-width: 0;
+}
+
+:root[data-mobile="true"] .official-model-table :is(th, td) {
+  padding: 10px 8px;
+}
+
+:root[data-mobile="true"] .official-model-table :is(th, td):nth-child(2),
+:root[data-mobile="true"] .official-model-table :is(th, td):nth-child(3),
+:root[data-mobile="true"] .official-model-table :is(th, td):nth-child(4),
+:root[data-mobile="true"] .official-model-table :is(th, td):nth-child(5),
+:root[data-mobile="true"] .official-model-table :is(th, td):nth-child(6) {
+  display: none;
+}
+
+/* ---------------- 功能页里写死高度的长文本框 ---------------- */
+
+/*
+ * 修改分析的两个输入框写死 `height: 520px`（两个就是 1000+px 的滚动）。
+ * 手机上降到 240px —— 内容多的照样能拖大（resize: vertical 还在）。
+ */
+:root[data-mobile="true"] .revision-analysis-page .revision-inputs textarea {
+  height: 240px;
+  min-height: 160px;
+}

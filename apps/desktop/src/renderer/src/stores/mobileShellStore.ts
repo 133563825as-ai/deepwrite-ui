@@ -65,16 +65,23 @@ export const useMobileShellStore = defineStore("mobileShell", () => {
   });
 
   // 离开设置就清掉子页状态，否则下次进来会直接停在上一轮那个子页上。
+  //
+  // ⚠️ 这里必须同时盯 `workspaceMainView`，只盯 `currentView` 是不够的：
+  // 抽屉里点「工作区」和全部「更多功能」（修改分析 / 短篇拆书分析 / 技能广场…）
+  // 走的都是 `workspaceMainView`，`currentView` 本来就已经是 `workspace`，
+  // **值没变 → watch 不触发 → 抽屉一直开着**。用户看到的是「点了没反应」：
+  // 页面其实已经在抽屉后面打开了，得再点一次 ✕ 或遮罩才看得见。
+  //（`currentView` 只覆盖「设置」那一路，2026-09-15 手机上 9/9 个导航项都复现过。）
   watch(
-    () => layout.currentView,
-    (view) => {
+    [() => layout.currentView, () => layout.workspaceMainView],
+    ([view]) => {
       if (view !== "settings") settingsSubPageTitle.value = "";
       // 从抽屉里导航走之后必须把抽屉关上。
       //
       // 抽屉的遮罩是 `position: fixed; inset: 0; z-index: 65` 的一层半透明黑，
       // 不关的话新页面整个是灰的，而且**第一下点击会被遮罩吃掉** ——
       // 用户看到的就是「设置是灰的，得先随便点一下才恢复正常、才能点里面的功能」。
-      // showSettings() 之类的导航只改 currentView、不碰抽屉，所以收口在这里，
+      // 这些导航只改 store 里的视图状态、不碰抽屉，所以收口在这里，
       // 不要指望每个导航入口自己记得关。
       closeDrawer();
     }

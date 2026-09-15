@@ -150,6 +150,10 @@ function activateMoreFeature(
     | "zhuque-detection"
     | "runtime"
 ): void {
+  // 手机上抽屉是盖住整页的：从这里点走之后必须收起来，否则用户看到的是
+  // 「点了没反应」—— 新页面已经在抽屉后面打开了（2026-09-15 实测 9/9 项都这样）。
+  // 不能只靠 store 里盯 currentView 的 watcher：这些入口只改 workspaceMainView。
+  mobileShell.closeDrawer();
   if (id === "revision-analysis") {
     emit("openDialog", "revision-analysis");
     return;
@@ -190,6 +194,9 @@ function activateMoreFeature(
 }
 
 function activateNav(id: "create-book" | PrimaryFeatureId): void {
+  // 同 activateMoreFeature：手机上从抽屉里导航走，抽屉必须收起来。
+  // 「新建书籍」这类只弹对话框、不改视图状态的入口尤其需要这一句。
+  mobileShell.closeDrawer();
   if (id === "create-book") {
     emit("createBook");
     return;
